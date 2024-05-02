@@ -17,13 +17,13 @@ Our contributions are immediately relevant for signal processing and event-based
 ## Spatio-temporal receptive fields
 [Event camera data](https://en.wikipedia.org/wiki/Event_camera) is sparse and discrete, which means that any computational model is faced with several challenges: the signal must somehow be integrated over time to capture the **temporal** characteristics, the **spatial** structure of the events needs to be kept over both space *and* time, and the sparsity should be retained to exploit the low energy consumption of neuromorphic technologies.
 
-The video below shows you how we achieve all of the above by combining *spatial receptive fields* (**a**, **b**, and **d**) and *temporal receptive fields* (**c**, **e**) on both dense image data from the UCF-101 dataset (**b** and **c**) and event-based data from [our event-based dataset generator](https://github.com/ncskth/event-generator) (**d** and **e**).
+We achieve all of the above by combining *spatial receptive fields* (**a**, **b**, and **d**) and *temporal receptive fields* (**c**, **e**) on both dense image data from the UCF-101 dataset (**b** and **c**) and event-based data from [our event-based dataset generator](https://github.com/ncskth/event-generator) (**d** and **e**).
 The spatial receptive fields are Gaussian derivatives parameterizing certain spatial covariance properties.
 The temporal receptive fields are truncated exponential kernels parameterizing temporal scaling properties.
 Taken together, we provably achieve covariance for spatial affine transformations, Galilean transformations, and temporal scaling transformations in the image domain.
 Put differently, we exploit the symmetries in natural image transformations to correctly code for physical movements of objects in space and time.
 
-<video src="kayak.mp4" autoplay loop style="margin: 0 auto;" />
+<video src="https://github.com/Jegp/nrf/assets/1064317/d86b6f79-281b-4642-84a6-146c864a100a" muted autoplay loop style="margin: 0 auto;"></video>
 
 ## Dataset
 The data is generated using the [event-generator](https://github.com/ncskth/event-generator) repository (seen in the Figure above, panel **d**).
