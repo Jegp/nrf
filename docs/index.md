@@ -25,7 +25,7 @@ The direction is exciting to us because we
 ## What is a **spatial** receptive field?
 
 A spatial receptive field can be thought of as a kernel that `pattern matches' the incoming signal.
-Formally, it is [the convolution integral](https://en.wikipedia.org/wiki/Convolution) of the input signal with a kernel $k$.
+Formally, it is [the convolution integral](https://en.wikipedia.org/wiki/Convolution) of the input signal with a kernel \(k\).
 
 $$
 (f \star g) (t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau) d\tau
@@ -53,13 +53,13 @@ h(t;\, \mu) = \begin{cases} \mu^{-1}\exp(-t/\mu) & t \gt 0 \\ 0 & t \leqslant 0 
 $$
 
 
-<video src="conv_li2.mp4" autoplay loop></video>
+<video src="conv_li2.mp4" autoplay loop style="max-width: 100%;"></video>
 
 
 Imagine applying this kernel to a moving object in time.
 If the time constant $\mu$ is large, the kernel will <q>smear</q> out the signal over time, similar to the video below
 
-<video src="conv_li.mp4" autoplay loop></video>
+<video src="conv_li.mp4" autoplay loop style="max-width: 100%;"></video>
 
 This is a pattern matching operation in time, similar to the spatial case.
 
