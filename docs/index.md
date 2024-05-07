@@ -85,7 +85,7 @@ The less velocity, the sparser the signal.
 To a point where the signal is so sparse it is impossible to track the objects with the human eye.
 
 The below figure shows the performance of our model compared to a non-neuromorphic neural network with ReLU units.
-The leaky integrator (LI) and the leaky integrate-and-fire (LIF) models outperform the ReLU network in all cases.
+The leaky integrator (LI) and the leaky integrate-and-fire (LIF) models outperform the ReLU network in most cases.
 Even the ReLU network that has access to multiple frames in the past (multi-frame (MF) vs single-frame (SF)).
 
 For context, the sparse setting (velocity = 0.08) generates about 3-4 shape-related activations per time step, against a backdrop of about 500 activations related to noise.
