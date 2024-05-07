@@ -4,6 +4,8 @@ This repository contains the code for the paper "Covariant spatio-temporal recep
 
 A preprint is available at: [arXiv:2405.00318](https://arxiv.org/abs/2405.00318)
 
+Further explanations can be found at [jegp.github.io/nrf](https://jegp.github.io/nrf)
+
 ## Abstract
 Biological nervous systems constitute important sources of inspiration towards computers that are faster, cheaper, and more energy efficient.
 Neuromorphic disciplines view the brain as a coevolved system, simultaneously optimizing the hardware and the algorithms running on it.
@@ -15,6 +17,8 @@ This work combines efforts within scale-space theory and computational neuroscie
 Our contributions are immediately relevant for signal processing and event-based vision, and can be extended to other processing tasks over space and time, such as memory and control.
 
 ## Spatio-temporal receptive fields
+**Read more at [jegp.github.io/nrf](https://jegp.github.io/nrf)**
+
 [Event camera data](https://en.wikipedia.org/wiki/Event_camera) is sparse and discrete, which means that any computational model is faced with several challenges: the signal must somehow be integrated over time to capture the **temporal** characteristics, the **spatial** structure of the events needs to be kept over both space *and* time, and the sparsity should be retained to exploit the low energy consumption of neuromorphic technologies.
 
 We achieve all of the above by combining *spatial receptive fields* (**a**, **b**, and **d**) and *temporal receptive fields* (**c**, **e**) on both dense image data from the UCF-101 dataset (**b** and **c**) and event-based data from [our event-based dataset generator](https://github.com/ncskth/event-generator) (**d** and **e**).

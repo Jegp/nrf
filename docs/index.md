@@ -25,7 +25,7 @@ The direction is exciting to us because we
 ## What is a **spatial** receptive field?
 
 A spatial receptive field can be thought of as a kernel that `pattern matches' the incoming signal.
-Formally, it is [the convolution integral](https://en.wikipedia.org/wiki/Convolution) of the input signal with a kernel \(k\).
+Formally, it is [the convolution integral](https://en.wikipedia.org/wiki/Convolution) of the input signal with a kernel \\(k\\).
 
 $$
 (f \star g) (t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau) d\tau
@@ -40,13 +40,13 @@ Each kernel will provide a unique response to the input signal, which exactly co
 
 ## What is a **temporal** receptive field?
 In time, this looks a little different.
-First, we have a **causality assumption**. We cannot integrate from $-\infty$ to $\infty$ in time, because we don't know the future.
+First, we have a **causality assumption**. We cannot integrate from \\(-\inft\\) to \\(\infty\\) in time, because we don't know the future.
 
 $$
 (f \star g) (t) = \int_{0}^{\infty} f(\tau) g(t - \tau) d\tau
 $$
 
-That limits our choice of $g$, and we instead have to integrate with an *exponentially truncated* kernel like the video below
+That limits our choice of \\(g\\), and we instead have to integrate with an *exponentially truncated* kernel like the video below
 
 $$
 h(t;\, \mu) = \begin{cases} \mu^{-1}\exp(-t/\mu) & t \gt 0 \\ 0 & t \leqslant 0 \end{cases}
@@ -57,7 +57,7 @@ $$
 
 
 Imagine applying this kernel to a moving object in time.
-If the time constant $\mu$ is large, the kernel will <q>smear</q> out the signal over time, similar to the video below
+If the time constant \\(\mu\\) is large, the kernel will <q>smear</q> out the signal over time, similar to the video below
 
 <video src="conv_li.mp4" autoplay loop style="max-width: 100%;"></video>
 
@@ -67,9 +67,10 @@ This is a pattern matching operation in time, similar to the spatial case.
 
 Thanks to the excellent work by [Tony Lindeberg](https://www.kth.se/profile/tony/) on scale-space theory (see in particular [this publication on normative receptive fields](https://www.sciencedirect.com/science/article/pii/S2405844021000025)), we have a principled way to combine the covariance properties of the spatial and temporal receptive fields.
 
-Concretely, we both want the spatial ($x$) and temporal ($t$) signal subject to some spatial transformation $A$ and temporal scaling operation $S_t$ to be covariant under a given scale-space representation $L$.
+Concretely, we both want the spatial (\\(x\\)) and temporal (\\(t\\)) signal subject to some spatial transformation \\(A\\) and temporal scaling operation \\(S_t\\) to be covariant under a given scale-space representation \\(L\\).
 
-![](covariance_spatiotemporal.svg)
+<img src="covariance_spatiotemporal.svg"
+style="width: 100%;"/>
 
 ## Neuromophic spatio-temporal receptive fields
 
