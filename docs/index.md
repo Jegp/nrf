@@ -16,11 +16,11 @@ We can build the circuits, but we don't know how to combine them to achieve what
 
 Here, **we provide a principled computational model for neuromorphic systems** based on tried-and-tested spatio-temporal covariance properties.
 We demonstrate superior performance for simple neuromorphic primitives in an [event-based vision](https://en.wikipedia.org/wiki/Event_camera) task compared to naïve artificial neural networks.
-The direction is exciting to us because we 
+The direction is exciting to us because
 
-1. Define mathematically coherent covariance properties, which are required to correctly handle signals in space and time,
+1. We define mathematically coherent covariance properties, which are required to correctly handle signals in space and time,
 2. Use neuromorphic primitives (leaky integrator and leaky integrate-and-fire models) to outcompete a non-neuromorphic neural network, and
-3. Have immediate relevance in signal processing and event-based vision, with the possibility to extend to other tasks over space and time, such as memory and control.
+3. Our results have immediate relevance in signal processing and event-based vision, with the possibility to extend to other tasks over space and time, such as memory and control.
 
 ## What is a **spatial** receptive field?
 
