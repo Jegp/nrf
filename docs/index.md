@@ -1,5 +1,8 @@
 # Covariant spatio-temporal receptive fields for neuromorphic computing
 
+[![arXiv](https://img.shields.io/badge/arXiv-2405.00318-b31b1b.svg?style=for-the-badge)](https://arxiv.org/abs/2405.00318)
+![Discord](https://img.shields.io/discord/1209533869733453844?style=for-the-badge)
+
 [Neuromorphic computing](https://en.wikipedia.org/wiki/Neuromorphic) exploits the laws of physics to perform computations, similar to the human brain.
 If we can "lower" the computation into physics, we achieve **extreme energy gains**, [up to 27-35 orders of magnitude](https://ieeexplore.ieee.org/document/10363573).
 So, why aren't we doing that? Presently, we *lack theories to guide efficient implementations*. 
@@ -89,7 +92,7 @@ The authors gratefully acknowledge support from the EC Horizon 2020 Framework
 Programme under Grant Agreements 785907 and 945539 (HBP), the Swedish Research Council under contracts 2022-02969 and 2022-06725, and the Danish National Research Foundation grant number P1.
 
 ## Citation
-Please cite our work as follows
+Our work is available as a preprint at [arXiv:2405.00318](https://arxiv.org/abs/2405.00318) and can be cited as follows
 ```bibtex
 @misc{pedersen2024covariant,
       title={Covariant spatio-temporal receptive fields for neuromorphic computing}, 
