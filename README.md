@@ -35,6 +35,13 @@ We use the PyTorch dataset class in `dataset.py` to load the data.
 Please refer to the event-generator repository for more information how to generate data to reproduce our results.
 
 ## Acknowledgements
+All simulations, neuron models, and the spatio-temporal receptive fields rely on [the Norse library](https://github.com/norse/norse).
+The implementation of affine directional derivatives is based on
+the [affscsp module in the pyscsp package](https://github.com/tonylindeberg/pyscsp) and some parts
+of the temporal smoothing operations are based on the
+[pytempscsp package](https://github.com/tonylindeberg/pytempscsp).
+
+
 The authors gratefully acknowledge support from the EC Horizon 2020 Framework
 Programme under Grant Agreements 785907 and 945539 (HBP), the Swedish Research Council under contracts 2022-02969 and 2022-06725, and the Danish National Research Foundation grant number P1.
 
