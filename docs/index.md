@@ -65,7 +65,7 @@ This is a pattern matching operation in time, similar to the spatial case.
 
 ## Combining spatial and temporal receptive fields
 
-Thanks to the excellent work by [Tony Lindeberg](https://www.kth.se/profile/tony/) on scale-space theory (see in particular [this publication on normative receptive fields](https://www.sciencedirect.com/science/article/pii/S2405844021000025)), we have a principled way to combine the covariance properties of the spatial and temporal receptive fields.
+Thanks to the excellent work by [Tony Lindeberg](https://www.kth.se/profile/tony/) on scale-space theory, we have a principled way to combine the covariance properties of the spatial and temporal receptive fields (see in particular his publications on [normative receptive fields](https://www.sciencedirect.com/science/article/pii/S2405844021000025), [time-causality and time-recursion](https://doi.org/10.1007/s10851-015-0613-9), and his [video explaining time-causal and time-recursive receptive fields](https://www.youtube.com/watch?v=WeU1mXUpNLg&feature=youtu.be)).
 
 Concretely, we both want the spatial (\\(x\\)) and temporal (\\(t\\)) signal subject to some spatial transformation \\(A\\) and temporal scaling operation \\(S_t\\) to be covariant under a given scale-space representation \\(L\\).
 
