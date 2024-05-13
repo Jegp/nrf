@@ -24,7 +24,7 @@ The direction is exciting to us because
 
 ## What is a **spatial** receptive field?
 
-A spatial receptive field can be thought of as a kernel that `pattern matches' the incoming signal.
+A spatial receptive field can be thought of as a kernel that <q>pattern matches</q> the incoming signal.
 Formally, it is [the convolution integral](https://en.wikipedia.org/wiki/Convolution) of the input signal with a kernel \\(k\\).
 
 $$
@@ -33,14 +33,14 @@ $$
 
 In our case, we use [Gaussian derivatives](https://en.wikipedia.org/wiki/Gaussian_function), which are a [heavily exploited in biological vision](https://www.sciencedirect.com/science/article/pii/S2405844021000025).
 Gaussian kernels are also known to be covariant to affine transformations if we parameterize them correctly, that is, rotates, stretches, and derives them in various ways to accurately match all the possible types of transformations in the image plane.
-Below you see some examples of spatial receptive fields, where a gaussian kernel (upper left) is derived in two axes (rows 1 and 2), as well as skewed and rotated (columns 2 to 5).
+Below you see some examples of spatial receptive fields, where a gaussian kernel (upper left) is derived in two axes (rows 2 and 3), as well as skewed and rotated (columns 2 to 5).
 Each kernel will provide a unique response to the input signal, which exactly codes for the transformation in the image plane.
 
 ![](srf.png)
 
 ## What is a **temporal** receptive field?
 In time, this looks a little different.
-First, we have a **causality assumption**. We cannot integrate from \\(-\inft\\) to \\(\infty\\) in time, because we don't know the future.
+First, we have a **causality assumption**. We cannot integrate from \\(-\infty\\) to \\(\infty\\) in time, because we don't know the future.
 
 $$
 (f \star g) (t) = \int_{0}^{\infty} f(\tau) g(t - \tau) d\tau
