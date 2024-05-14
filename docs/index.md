@@ -65,7 +65,7 @@ This is a pattern matching operation in time, similar to the spatial case.
 
 ## Combining spatial and temporal receptive fields
 
-Thanks to the excellent work by [Tony Lindeberg](https://www.kth.se/profile/tony/) on scale-space theory, we have a principled way to combine the covariance properties of the spatial and temporal receptive fields (see in particular his publications on [normative receptive fields](https://www.sciencedirect.com/science/article/pii/S2405844021000025), [time-causality and time-recursion](https://doi.org/10.1007/s10851-015-0613-9), and his [video explaining time-causal and time-recursive receptive fields](https://www.youtube.com/watch?v=WeU1mXUpNLg&feature=youtu.be)).
+Thanks to the excellent work by [Tony Lindeberg](https://www.kth.se/profile/tony/) on scale-space theory, we have a principled way to combine the covariance properties of the spatial and temporal receptive fields (see in particular his publications on [normative receptive fields](https://www.sciencedirect.com/science/article/pii/S2405844021000025), [temporal causality and temporal recursivity](https://doi.org/10.1007/s10851-015-0613-9), and his [video explaining time-causal and time-recursive receptive fields](https://www.youtube.com/watch?v=WeU1mXUpNLg&feature=youtu.be)).
 Our work extends this theory to spiking networks for neuromorphic computing.
 We also make use of affine Gaussian derivative kernels over the spatial domain, as opposed to using regular Gaussian derivatives, based on isotropic spatial smoothing kernels, which we presented in [previous work](https://dl.acm.org/doi/10.1145/3584954.3584996).
 
