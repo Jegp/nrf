@@ -1,0 +1,6 @@
+norse>=1.0.1
+pytorch-lightning==1.9.4
+numpy==1.26.4
+matplotlib
+torchvision
+tensorboardx

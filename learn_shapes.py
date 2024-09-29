@@ -2,7 +2,6 @@ from argparse import ArgumentParser
 from itertools import chain
 import pathlib
 from types import SimpleNamespace
-from typing import Union
 
 import torch
 import norse.torch as norse
@@ -10,8 +9,7 @@ import pytorch_lightning as pl
 
 from datasets.datasets.dataset import ShapeDataset
 
-import model_channel
-from model_channel import ShapesRFModel
+from model import SpatioTemporalModel, SpatioTemporalModelParameters, TemporalRF
 from loss import *
 from visualization import *
 
@@ -29,52 +27,36 @@ class ShapesModel(pl.LightningModule):
         self.args = args
 
         # Network
-        p_li = norse.LIBoxParameters(
-            tau_mem_inv=torch.as_tensor(args.li_tau_mem_inv, device=args.device),
-            v_leak=torch.as_tensor(args.v_leak, device=args.device),
-        )
-        p_lif = norse.LIFBoxParameters(
-            tau_mem_inv=torch.as_tensor(args.lif_tau_mem_inv, device=args.device),
-            v_leak=torch.as_tensor(args.v_leak, device=args.device),
-            v_th=torch.as_tensor(args.v_th * args.lif_tau_mem_inv / 1000, device=args.device),
-            method=args.method,
-        )
-        classes = 3
-
-        if args.net.startswith("ann"):
-            self.net = ShapesRFModel(
-                classes=classes,
-                activation="ReLU",
-                activation_p=None,
-                classifier_p=None,
-                input_frames=2 if args.sum_frames else (args.stack_frames * 2),
-                init_scheme=args.init_scheme,
-                resolution=args.resolution,
-            )
-        elif args.net.startswith("snn"):
-            self.net = ShapesRFModel(
-                classes=classes,
-                activation=norse.LIFBoxCell,
-                activation_p=p_lif,
-                classifier_p=p_li,
-                init_scheme=args.init_scheme,
-                resolution=args.resolution,
-                max_time_constant=args.max_time_constant,
-                time_constant_scaling=args.time_constant_scaling,
-            )
-        elif args.net.startswith("li"):
-            self.net = ShapesRFModel(
-                classes=classes,
-                activation=norse.LIBoxCell,
-                activation_p=p_li,
-                classifier_p=p_li,
-                init_scheme=args.init_scheme,
-                resolution=args.resolution,
-                max_time_constant=args.max_time_constant,
-                time_constant_scaling=args.time_constant_scaling,
-            )
+        n_classes = 3
+        n_scales = 4
+        n_angles = 3
+        n_ratios = 3
+        n_derivatives = 2
+        if args.net == "lif":
+            activation = "lif"
+        elif args.net == "li":
+            activation = "li"
+        elif args.net == "ann":
+            activation = "relu"
         else:
             raise ValueError("Unknown network type " + args.net)
+
+        # Network
+        p = SpatioTemporalModelParameters(
+            n_scales=n_scales,
+            n_angles=n_angles,
+            n_ratios=n_ratios,
+            n_derivatives=n_derivatives,
+            activation=activation,
+            init_scheme=args.init_scheme,
+            channels_in=2 if args.sum_frames else (args.stack_frames * 2),
+            resolution=args.resolution,
+            n_classes=n_classes,
+            channel_layers=2,
+            device=args.device,
+        )
+        self.net = SpatioTemporalModel(p)
+        self.out_shape = torch.tensor(self.net.out_shape[-2:], device=args.device)
 
         # Regularization
         if args.regularization == "js":
@@ -97,13 +79,13 @@ class ShapesModel(pl.LightningModule):
         self.regularization_scale = args.regularization_scale
         # Coordinate
         if args.coordinate == "dsnt":
-            self.coordinate = DSNT(self.net.out_shape)
+            self.coordinate = DSNT(self.out_shape)
         elif args.coordinate == "dsntli":
-            self.coordinate = DSNTLI(self.net.out_shape)
+            self.coordinate = DSNTLI(self.out_shape)
         else:
             self.coordinate = PixelActivityToCoordinate(args.resolution)
 
-        self.resolution = torch.tensor(args.resolution)
+        self.resolution = torch.tensor(args.resolution, device=args.device)
         self.lr = args.lr
         self.lr_step = args.lr_step
         self.warmup = args.warmup
@@ -113,12 +95,11 @@ class ShapesModel(pl.LightningModule):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
-        parser = parent_parser.add_argument_group("SpotModel")
-        parser.add_argument(
-            "--net",
-            type=str,
-            default="snnrf",
-        )
+        parser = parent_parser.add_argument_group("Network")
+        parser.add_argument("--net", type=str)
+        parser.add_argument("--n_scales", type=int)
+        parser.add_argument("--n_angles", type=int, default=3)
+        parser.add_argument("--n_ratios", type=int, default=2)
         parser.add_argument(
             "--regularization",
             type=str,
@@ -146,48 +127,18 @@ class ShapesModel(pl.LightningModule):
             help="Method to reduce 2d surface to coordinate",
         )
         parser.add_argument(
-            "--learn_parameters",
-            action="store_true",
-            default=False,
-            help="Optimize LI parameters?",
-        )
-        parser.add_argument(
             "--init_scheme",
             type=int_or_str,
             default="rf",
             help="Init method for spatial and temporal RFs",
         )
-        parser.add_argument(
-            "--time_constant_scaling",
-            default=2,
-            type=float,
-        )
-        parser.add_argument(
-            "--max_time_constant",
-            default=1000,
-            type=float,
-        )
         parser.add_argument("--lr", type=float, default=5e-4)
         parser.add_argument(
             "--lr_step", type=str, default="step", choices=["step", "ca", "none"]
         )
-        parser.add_argument(
-            "--lr_temporal_factor",
-            type=float,
-            default=1e3,
-            help="Scaling factor for temporal gradients relative to spatial",
-        )
         parser.add_argument("--lr_decay", type=float, default=0.95)
-        parser.add_argument("--li_tau_mem_inv", type=float, default=950)
-        parser.add_argument("--lif_tau_mem_inv", type=float, default=950)
         parser.add_argument("--v_leak", type=float, default=0.0)
         parser.add_argument("--v_th", type=float, default=0.3)
-        parser.add_argument(
-            "--method",
-            type=str,
-            choices=["super", "triangle", "tanh", "adjoint"],
-            default="super",
-        )
         parser.add_argument(
             "--optimizer",
             type=str,
@@ -227,8 +178,8 @@ class ShapesModel(pl.LightningModule):
         if len(children) > 0:
             l += self.extract_time_constants(children, fn)
 
-        if isinstance(m, model_channel.TemporalScaleChannel):
-            l.extend([self.extract_time_constants(m.t_rfs)])
+        if isinstance(m, TemporalRF) and hasattr(m, "tau_mem_inv"):
+            l.extend([m.tau_mem_inv])
 
         if hasattr(m, "p") and hasattr(m.p, "tau_mem_inv"):
             l.append(fn(m))
@@ -290,9 +241,7 @@ class ShapesModel(pl.LightningModule):
         # Predict
         out, _, activity = self.net(x, s)
         if self.args.net.startswith("snn"):
-            snn_reg = torch.tensor(
-                [activity[0].mean(), activity[1].mean(), activity[2].mean()]
-            )
+            snn_reg = activity
         else:
             snn_reg = torch.tensor([0.0])
         out, (out_co, _) = self.calc_coordinate(out, co_s)  # Replace out w/ rectified
@@ -307,7 +256,7 @@ class ShapesModel(pl.LightningModule):
         # Regularization
         y_gauss = make_gauss(
             y_co,
-            self.net.out_shape.to(self.device),
+            self.out_shape.to(self.device),
             0.06,
             normalize=True,
         )
@@ -387,7 +336,7 @@ class ShapesModel(pl.LightningModule):
         self.log("val/loss", loss.mean(), sync_dist=True)
         args = self.args
         with open(
-            f"{args.log_root}/{args.net}-{args.init_scheme}-{args.stack_frames}{args.sum_suffix}-{pathlib.Path(args.data_root).name}.csv",
+            f"{args.name}_{pathlib.Path(args.data_root).name}.csv",
             "a",
         ) as fp:
             fp.write(
@@ -557,8 +506,10 @@ def train(config, args, callbacks=[]):
     )
 
     args.sum_suffix = "S" if args.sum_frames else ""
-    name = f"{args.net}_{args.init_scheme}_{args.stack_frames}{args.sum_suffix}_{args.time_constant_scaling}x{args.max_time_constant}_({pathlib.Path(args.data_root).name})"
-    logger = pl.loggers.TensorBoardLogger(args.log_root, name=name)
+    args.name = f"{args.net}_{args.init_scheme}_{args.stack_frames}{args.sum_suffix}"
+    logger = pl.loggers.TensorBoardLogger(
+        args.log_root, name=f"{args.name}_({pathlib.Path(args.data_root).name})"
+    )
 
     trainer = pl.Trainer.from_argparse_args(
         args,
@@ -574,7 +525,6 @@ def train(config, args, callbacks=[]):
 
 def main(args):
     torch.set_float32_matmul_precision("medium")
-    # args.gpus = [int(args.gpus) if args.gpus is not None else 1]
     checkpoint_save = pl.callbacks.ModelCheckpoint(save_top_k=5, monitor="val/norm")
     train({}, args, [checkpoint_save])
 

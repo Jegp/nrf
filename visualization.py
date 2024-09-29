@@ -9,8 +9,6 @@ import numpy as np
 import torch, torchvision
 import torchvision.transforms.functional as F
 
-from IPython import display
-
 
 def events_to_frames(frames, polarity: bool = False):
     if len(frames.shape) == 3:
@@ -140,6 +138,8 @@ def render_video(frames, filename, lossless=True, **kwargs):
 
 
 def animate_frames(frames, figure=None, interval: int = 20, **kwargs):
+    from IPython import display
+
     if figure is None:
         figure, _ = plt.subplots(**kwargs)
     ax = figure.gca()
