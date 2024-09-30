@@ -17,7 +17,15 @@ def events_to_frames(frames, polarity: bool = False):
         if not polarity:
             frames = frames.abs().sum(-1)
         elif polarity:
-            frames = torch.concat([frames, torch.zeros(frames.shape[0], 1, *frames.shape[2:], device=frames.device)], dim=1).movedim(1, -1)
+            frames = torch.concat(
+                [
+                    frames,
+                    torch.zeros(
+                        frames.shape[0], 1, *frames.shape[2:], device=frames.device
+                    ),
+                ],
+                dim=1,
+            ).movedim(1, -1)
     frames = ((frames / frames.max()) * 255).int().clip(0, 255)
     return frames
 
@@ -58,8 +66,9 @@ def render_kernels(k):
     nrows = round(math.sqrt(len(colors)) * 1.618)
     return torchvision.utils.make_grid(colors, nrow=nrows)
 
+
 def render_prediction(x, x_co, y_im, y_co_pred, y_expected):
-    fig = plt.figure(figsize=(7, 3))
+    fig = plt.figure(figsize=(7, 3), dpi=100)
     plt.set_cmap("coolwarm")
 
     outer = matplotlib.gridspec.GridSpec(1, 3, width_ratios=[1, 1, 1])

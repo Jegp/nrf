@@ -58,7 +58,7 @@ class SpatioTemporalModelParameters:
 
 class TemporalRF(torch.nn.Module):
 
-    def __init__(self, tau: float, activation: str, init_scheme: str):
+    def __init__(self, tau: float, activation: str, init_scheme: str, device: str):
         """
         A single temporal receptive field.
         """
@@ -69,20 +69,20 @@ class TemporalRF(torch.nn.Module):
         elif activation.lower() == "lif":
             self.register_parameter(
                 "tau_mem_inv",
-                torch.nn.Parameter(torch.as_tensor(p.tau, device=p.device)),
+                torch.nn.Parameter(torch.as_tensor(tau, device=device).float()),
             )
             p = norse.LIFBoxParameters(tau_mem_inv=self.tau_mem_inv)
-            temporal_layers.append(norse.LIFCell(p))
+            temporal_layers.append(norse.LIFBoxCell(p))
         elif activation.lower() == "li":
             self.register_parameter(
                 "tau_mem_inv",
-                torch.nn.Parameter(torch.as_tensor(p.tau, device=p.device)),
+                torch.nn.Parameter(torch.as_tensor(tau, device=device).float()),
             )
             p = norse.LIBoxParameters(tau_mem_inv=self.tau_mem_inv)
-            temporal_layers.append(norse.LICell(p))
+            temporal_layers.append(norse.LIBoxCell(p))
             temporal_layers.append(torch.nn.ReLU())
         else:
-            raise ValueError(f"Unknown activation function: {p.activation}")
+            raise ValueError(f"Unknown activation function: {activation}")
 
         self.temporal = norse.SequentialState(*temporal_layers)
 
@@ -116,7 +116,9 @@ class SpatioTemporalRF(torch.nn.Module):
                 p.spatial_p.padding,
             ).to(p.device)
 
-        self.temporal = TemporalRF(p.tau, p.activation, p.init_scheme).to(p.device)
+        self.temporal = TemporalRF(p.tau, p.activation, p.init_scheme, p.device).to(
+            p.device
+        )
 
     def forward(self, x: torch.Tensor, state=None):
         x = self.downsample(x)
@@ -211,7 +213,7 @@ class SpatioTemporalModel(torch.nn.Module):
         self.classifier = norse.SequentialState(
             torch.nn.ConvTranspose2d(p.n_classes, p.n_classes, 5, bias=True),
             torch.nn.BatchNorm2d(p.n_classes),
-            TemporalRF(900, p.activation, p.init_scheme),
+            TemporalRF(900, p.activation, p.init_scheme, p.device),
             torch.nn.Dropout(0.1),
         ).to(p.device)
 
@@ -219,6 +221,15 @@ class SpatioTemporalModel(torch.nn.Module):
             self.out_shape = self.forward(
                 torch.zeros(1, 1, p.channels_in, *p.resolution, device=p.device)
             )[0].shape
+
+    @staticmethod
+    def _extract_state(state, activations=[]):
+        if hasattr(state, "v"): # LIF + LI
+            activations.append(state.v.mean())
+        elif isinstance(state, list) or isinstance(state, tuple):
+            for s in state:
+                SpatioTemporalModel._extract_state(s, activations)
+        return activations
 
     def forward(self, x: torch.Tensor, state=None):
         if state is None:
@@ -228,7 +239,6 @@ class SpatioTemporalModel(torch.nn.Module):
             channel_state, classifier_state = state
 
         output_stack = []
-        channel_stack = []
         for t in x:
             channel_outputs = []
 
@@ -237,14 +247,19 @@ class SpatioTemporalModel(torch.nn.Module):
                 channel_outputs.append(channel_out)
 
             channel_outputs = torch.stack(channel_outputs, dim=1)
-            channel_stack.append(channel_outputs)
             channel_merged = channel_outputs.mean(dim=1)  # Average the channels
             classifier_out, classifier_state = self.classifier(
                 channel_merged, classifier_state
             )
             output_stack.append(classifier_out)
+
+        activations = []
+        states = [*channel_state, classifier_state]
+        for s in states:
+            SpatioTemporalModel._extract_state(s, activations)
+
         return (
             torch.stack(output_stack),
             (channel_state, classifier_state),
-            torch.stack(channel_stack).mean(),
+            torch.stack(activations),
         )

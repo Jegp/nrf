@@ -240,7 +240,7 @@ class ShapesModel(pl.LightningModule):
 
         # Predict
         out, _, activity = self.net(x, s)
-        if self.args.net.startswith("snn"):
+        if self.args.net == "lif":
             snn_reg = activity
         else:
             snn_reg = torch.tensor([0.0])
