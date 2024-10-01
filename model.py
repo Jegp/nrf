@@ -115,7 +115,7 @@ class SpatioTemporalRF(torch.nn.Module):
                 p.spatial_p.rf_parameters,
                 p.spatial_p.padding,
             ).to(p.device)
-
+        
         self.temporal = TemporalRF(p.tau, p.activation, p.init_scheme, p.device).to(
             p.device
         )
@@ -167,6 +167,9 @@ class SpatioTemporalModel(torch.nn.Module):
                 p.n_scales, min_scale=1.2  # Corresponds to < 913
             )
         )
+        if p.init_scheme == "uniform": # Uniform channel taus
+            channel_taus.uniform_(channel_taus.min(), channel_taus.max())
+
         scales = (2 ** torch.arange(p.n_scales)).float()
         angles = torch.linspace(
             0, torch.pi * 2 - torch.pi / p.n_angles, p.n_angles
