@@ -31,7 +31,7 @@ class ShapesModel(pl.LightningModule):
         n_scales = 4
         n_angles = 3
         n_ratios = 3
-        n_derivatives = 2
+        n_derivatives = 1
         if args.net == "lif":
             activation = "lif"
         elif args.net == "li":
