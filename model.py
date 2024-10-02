@@ -264,5 +264,5 @@ class SpatioTemporalModel(torch.nn.Module):
         return (
             torch.stack(output_stack),
             (channel_state, classifier_state),
-            torch.stack(activations),
+            activations,
         )

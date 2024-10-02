@@ -241,7 +241,7 @@ class ShapesModel(pl.LightningModule):
         # Predict
         out, _, activity = self.net(x, s)
         if self.args.net == "lif":
-            snn_reg = activity
+            snn_reg = torch.stack(activity)
         else:
             snn_reg = torch.tensor([0.0])
         out, (out_co, _) = self.calc_coordinate(out, co_s)  # Replace out w/ rectified
