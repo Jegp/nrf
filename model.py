@@ -115,7 +115,7 @@ class SpatioTemporalRF(torch.nn.Module):
                 p.spatial_p.rf_parameters,
                 p.spatial_p.padding,
             ).to(p.device)
-        
+
         self.temporal = TemporalRF(p.tau, p.activation, p.init_scheme, p.device).to(
             p.device
         )
@@ -167,7 +167,7 @@ class SpatioTemporalModel(torch.nn.Module):
                 p.n_scales, min_scale=1.2  # Corresponds to < 913
             )
         )
-        if p.init_scheme == "uniform": # Uniform channel taus
+        if p.init_scheme == "uniform":  # Uniform channel taus
             channel_taus.uniform_(channel_taus.min(), channel_taus.max())
 
         scales = (2 ** torch.arange(p.n_scales)).float()
@@ -187,7 +187,7 @@ class SpatioTemporalModel(torch.nn.Module):
                     derivatives,
                     x=torch.tensor([0.0]),
                     y=torch.tensor([0.0]),
-                )
+                ).to(p.device)
                 kernel_sizes = torch.arange(5, 2 * p.channel_layers + 5, 2).flip(0)
                 layer_parameters = []
                 for i in range(p.channel_layers):
@@ -227,7 +227,7 @@ class SpatioTemporalModel(torch.nn.Module):
 
     @staticmethod
     def _extract_state(state, activations=[]):
-        if hasattr(state, "v"): # LIF + LI
+        if hasattr(state, "v"):  # LIF + LI
             activations.append(state.v.mean())
         elif isinstance(state, list) or isinstance(state, tuple):
             for s in state:
