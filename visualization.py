@@ -68,7 +68,7 @@ def render_kernels(k):
 
 
 def render_prediction(x, x_co, y_im, y_co_pred, y_expected):
-    fig = plt.figure(figsize=(7, 3), dpi=100)
+    fig = plt.figure(figsize=(10, 5), dpi=200)
     plt.set_cmap("coolwarm")
 
     outer = matplotlib.gridspec.GridSpec(1, 3, width_ratios=[1, 1, 1])

@@ -165,9 +165,7 @@ class ShapesModel(pl.LightningModule):
             ks.append(net.weight.clone().detach().cpu())
         return ks
 
-    def extract_time_constants(
-        self, m, fn=lambda m: m.p.tau_mem_inv.clone().detach().cpu()
-    ):
+    def extract_time_constants(self, m, fn):
         l = []
         if isinstance(m, list):
             for i in m:
@@ -179,10 +177,9 @@ class ShapesModel(pl.LightningModule):
             l += self.extract_time_constants(children, fn)
 
         if isinstance(m, TemporalRF) and hasattr(m, "tau_mem_inv"):
-            l.extend([m.tau_mem_inv])
+            l.extend([fn(m.tau_mem_inv)])
+            return l  # Return early
 
-        if hasattr(m, "p") and hasattr(m.p, "tau_mem_inv"):
-            l.append(fn(m))
         return l
 
     def normalized_to_image(self, coordinate):
@@ -283,8 +280,8 @@ class ShapesModel(pl.LightningModule):
         )
         loss = loss_co.mean() + loss_reg.mean() + spike_reg.mean()
 
-        # Visualize
-        if self.global_step % 100 == 0:
+        # Visualize every 1000 steps
+        if self.global_step % 1000 == 0:
             # Log prediction
             self.show_prediction(
                 x[-1, 0, 0],
@@ -316,15 +313,6 @@ class ShapesModel(pl.LightningModule):
             out, out_co, y_co_norm, snn_reg
         )
         loss = loss_co.mean() + loss_reg.mean()
-
-        # Log prediction
-        self.show_prediction(
-            x[-1, 0, 0],
-            y_co[-1, 0, 0],
-            out[-1, 0, 0],
-            self.normalized_to_image(out_co[-1, 0, 0]),
-            y_gauss[-1, 0, 0],
-        )
         dic = {
             "loss": loss.mean(),
             "hp_metric": loss.mean(),
@@ -406,29 +394,20 @@ class ShapesModel(pl.LightningModule):
         return optims, steppers
 
     def on_after_backward(self) -> None:
-        if self.global_step % 500 > 0:
+        if self.global_step % 1000 > 0:  # Only log every 1000 steps
             return
         # Extract time constant gradients
-        gradients = self.extract_time_constants(
-            self.net, lambda m: m.p.tau_mem_inv.grad
+        tc_and_gradients = self.extract_time_constants(
+            self.net,
+            lambda m: (
+                m.clone().detach().cpu(),
+                m.grad.clone().detach().cpu(),
+            ),
         )
-        for i, t in enumerate(gradients):
-            try:
-                self.logger.experiment.add_histogram(
-                    f"hist/grad/{i}", t, self.global_step
-                )
-            except:
-                pass  # Ignore empty histograms
-        # Extract time constakts
-        time_constants = self.extract_time_constants(self.net)
-        for i, t in enumerate(time_constants):
-            try:
-                self.logger.experiment.add_histogram(
-                    f"hist/tau/{i}", torch.stack(t), self.global_step
-                )
+        for i, (t, g) in enumerate(tc_and_gradients):
+            self.log(f"hist/grad/{i}", g, self.global_step)
+            self.log(f"hist/tau/{i}", t, self.global_step)
 
-            except:
-                pass  # Ignore empty histograms
         # Extract kernel gradients
         kernel_gradients = self.extract_kernels(
             self.net, lambda x: x.grad.clone().cpu()
@@ -450,13 +429,12 @@ class ShapesModel(pl.LightningModule):
             self.logger.experiment.add_image(
                 f"image/prediction", im, self.global_step, dataformats="HWC"
             )
-            if self.global_step % 100 == 0:  # Only plot every 100 steps
-                ks = self.extract_kernels(self.net)
-                for i, k in enumerate(ks):
-                    kernel_image = render_kernels(k)
-                    self.logger.experiment.add_image(
-                        f"image/kernels/{i}", kernel_image, self.global_step
-                    )
+            ks = self.extract_kernels(self.net)
+            for i, k in enumerate(ks):
+                kernel_image = render_kernels(k)
+                self.logger.experiment.add_image(
+                    f"image/kernels/{i}", kernel_image, self.global_step
+                )
 
         except Exception as e:
             print(f"Failure to log step {self.global_step}", e)
