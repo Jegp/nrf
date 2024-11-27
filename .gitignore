@@ -1,3 +1,5 @@
 scripts/
 .venv/
 __pycache__/
+*.out
+*.csv

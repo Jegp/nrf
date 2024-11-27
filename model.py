@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any, List, Tuple, Sequence
 from dataclasses import dataclass
 import torch
@@ -71,7 +72,7 @@ class TemporalRF(torch.nn.Module):
                 "tau_mem_inv",
                 torch.nn.Parameter(torch.as_tensor(tau, device=device).float()),
             )
-            p = norse.LIFBoxParameters(tau_mem_inv=self.tau_mem_inv)
+            p = norse.LIFBoxParameters(tau_mem_inv=self.tau_mem_inv, v_th=torch.tensor([0.1], device=device))
             temporal_layers.append(norse.LIFBoxCell(p))
         elif activation.lower() == "li":
             self.register_parameter(
@@ -138,8 +139,10 @@ class SpatioTemporalChannel(torch.nn.Module):
             SpatioTemporalRFParameters(l, p.activation, p.init_scheme, p.tau)
             for l in p.spatial_layers
         ]
-        self.layers = norse.SequentialState(
+        self.spatiotemporal = norse.SequentialState(
             *[SpatioTemporalRF(l) for l in layer_parameters],
+        )
+        self.output_layers = torch.nn.Sequential(
             torch.nn.AvgPool2d(2),
             torch.nn.Conv2d(
                 layer_parameters[-1].spatial_p.channels_out,
@@ -151,7 +154,8 @@ class SpatioTemporalChannel(torch.nn.Module):
         ).to(p.device)
 
     def forward(self, x: torch.Tensor, state=None):
-        return self.layers(x, state)
+        activations, state = self.spatiotemporal(x, state)
+        return self.output_layers(activations), state, activations
 
 
 class SpatioTemporalModel(torch.nn.Module):
@@ -213,10 +217,11 @@ class SpatioTemporalModel(torch.nn.Module):
 
         self.channels = torch.nn.ModuleList(channels).to(p.device)
 
+        classifier_activation = "li" if p.activation == "lif" else p.activation
         self.classifier = norse.SequentialState(
             torch.nn.ConvTranspose2d(p.n_classes, p.n_classes, 5, bias=True),
             torch.nn.BatchNorm2d(p.n_classes),
-            TemporalRF(900, p.activation, p.init_scheme, p.device),
+            TemporalRF(900, classifier_activation, p.init_scheme, p.device),
             torch.nn.Dropout(0.1),
         ).to(p.device)
 
@@ -224,15 +229,6 @@ class SpatioTemporalModel(torch.nn.Module):
             self.out_shape = self.forward(
                 torch.zeros(1, 1, p.channels_in, *p.resolution, device=p.device)
             )[0].shape
-
-    @staticmethod
-    def _extract_state(state, activations=[]):
-        if hasattr(state, "v"):  # LIF + LI
-            activations.append(state.v.mean())
-        elif isinstance(state, list) or isinstance(state, tuple):
-            for s in state:
-                SpatioTemporalModel._extract_state(s, activations)
-        return activations
 
     def forward(self, x: torch.Tensor, state=None):
         if state is None:
@@ -242,12 +238,14 @@ class SpatioTemporalModel(torch.nn.Module):
             channel_state, classifier_state = state
 
         output_stack = []
+        channel_activations = defaultdict(list)
         for t in x:
             channel_outputs = []
 
             for i, channel in enumerate(self.channels):
-                channel_out, channel_state[i] = channel(t, channel_state[i])
+                channel_out, channel_state[i], channel_activation = channel(t, channel_state[i])
                 channel_outputs.append(channel_out)
+                channel_activations[i].append(channel_activation.mean())
 
             channel_outputs = torch.stack(channel_outputs, dim=1)
             channel_merged = channel_outputs.mean(dim=1)  # Average the channels
@@ -256,10 +254,8 @@ class SpatioTemporalModel(torch.nn.Module):
             )
             output_stack.append(classifier_out)
 
-        activations = []
         states = [*channel_state, classifier_state]
-        for s in states:
-            SpatioTemporalModel._extract_state(s, activations)
+        activations = [torch.stack(v).mean() for v in channel_activations.values()]
 
         return (
             torch.stack(output_stack),

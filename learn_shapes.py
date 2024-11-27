@@ -117,8 +117,8 @@ class ShapesModel(pl.LightningModule):
             type=float,
             default=1e-4,
         )
-        parser.add_argument("--regularization_activity_mean", type=float, default=1e-3)
-        parser.add_argument("--regularization_activity_scale", type=float, default=1e-3)
+        parser.add_argument("--regularization_activity_mean", type=float, default=2e-2)
+        parser.add_argument("--regularization_activity_scale", type=float, default=100)
         parser.add_argument(
             "--coordinate",
             type=str,
@@ -137,8 +137,6 @@ class ShapesModel(pl.LightningModule):
             "--lr_step", type=str, default="step", choices=["step", "ca", "none"]
         )
         parser.add_argument("--lr_decay", type=float, default=0.95)
-        parser.add_argument("--v_leak", type=float, default=0.0)
-        parser.add_argument("--v_th", type=float, default=0.3)
         parser.add_argument(
             "--optimizer",
             type=str,
@@ -238,9 +236,9 @@ class ShapesModel(pl.LightningModule):
         # Predict
         out, _, activity = self.net(x, s)
         if self.args.net == "lif":
-            snn_reg = torch.stack(activity)
+            snn_reg = activity
         else:
-            snn_reg = torch.tensor([0.0])
+            snn_reg = []
         out, (out_co, _) = self.calc_coordinate(out, co_s)  # Replace out w/ rectified
         if prepend_warmup:
             return torch.cat((out_warmup, out_co)), torch.cat((co_warmup, out_co))
@@ -263,10 +261,16 @@ class ShapesModel(pl.LightningModule):
         )
 
         # Spike regularization
-        spike_reg = (
-            (self.args.regularization_activity_mean - out).mean() ** 2
-            + (self.args.regularization_activity_mean - snn_reg).mean() ** 2
-        ) * self.args.regularization_activity_scale
+        act_mean = self.args.regularization_activity_mean
+        act_scale = self.args.regularization_activity_scale
+        # spike_reg = [(act_mean - out).mean() ** 2 * act_scale]
+        spike_reg = []
+        for activation in snn_reg:
+            spike_reg.append((act_mean - activation).mean() ** 2 * act_scale)
+        if len(spike_reg) > 0:
+            spike_reg = torch.stack(spike_reg).sum()
+        else:
+            spike_reg = torch.tensor([], device=out.device)
 
         return loss_co, loss_reg, spike_reg, y_gauss
 
@@ -404,18 +408,22 @@ class ShapesModel(pl.LightningModule):
                 m.grad.clone().detach().cpu(),
             ),
         )
-        for i, (t, g) in enumerate(tc_and_gradients):
-            self.log(f"hist/grad/{i}", g, self.global_step)
-            self.log(f"hist/tau/{i}", t, self.global_step)
+        try:
+            for i, (t, g) in enumerate(tc_and_gradients):
+                self.log(f"hist/grad/{i}", g, self.global_step)
+                self.log(f"hist/tau/{i}", t, self.global_step)
 
-        # Extract kernel gradients
-        kernel_gradients = self.extract_kernels(
-            self.net, lambda x: x.grad.clone().cpu()
-        )
-        for i, l in enumerate(kernel_gradients):
-            self.logger.experiment.add_histogram(
-                f"hist/conv{i}/grad", l, self.global_step
+            # Extract kernel gradients
+            kernel_gradients = self.extract_kernels(
+                self.net, lambda x: x.grad.clone().cpu()
             )
+            for i, l in enumerate(kernel_gradients):
+                self.logger.experiment.add_histogram(
+                    f"hist/conv{i}/grad", l, self.global_step
+                )
+        except Exception as e:
+            print(f"Failure to log backward step {self.global_step}", e)
+            
 
     def show_prediction(self, x, x_co, y_im, y_co_pred, y_expected):
         im = render_prediction(
@@ -458,8 +466,8 @@ def train(config, args, callbacks=[]):
         ),
         batch_size=args.batch_size,
         shuffle=True,
-        num_workers=12,
-        prefetch_factor=2,
+        num_workers=6,
+        prefetch_factor=1,
         drop_last=True,
         pin_memory=True,
         persistent_workers=True,
@@ -476,8 +484,8 @@ def train(config, args, callbacks=[]):
         ),
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=12,
-        prefetch_factor=2,
+        num_workers=6,
+        prefetch_factor=1,
         drop_last=True,
         pin_memory=True,
         persistent_workers=True,
