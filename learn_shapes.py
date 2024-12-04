@@ -27,10 +27,6 @@ class ShapesModel(pl.LightningModule):
         self.args = args
 
         # Network
-        n_classes = 3
-        n_scales = 4
-        n_angles = 3
-        n_ratios = 3
         n_derivatives = 1
         if args.net == "lif":
             activation = "lif"
@@ -43,15 +39,15 @@ class ShapesModel(pl.LightningModule):
 
         # Network
         p = SpatioTemporalModelParameters(
-            n_scales=n_scales,
-            n_angles=n_angles,
-            n_ratios=n_ratios,
+            n_scales=args.n_scales,
+            n_angles=args.n_angles,
+            n_ratios=args.n_ratios,
             n_derivatives=n_derivatives,
             activation=activation,
             init_scheme=args.init_scheme,
             channels_in=2 if args.sum_frames else (args.stack_frames * 2),
             resolution=args.resolution,
-            n_classes=n_classes,
+            n_classes=args.n_classes,
             channel_layers=2,
             device=args.device,
         )
@@ -99,7 +95,8 @@ class ShapesModel(pl.LightningModule):
         parser.add_argument("--net", type=str)
         parser.add_argument("--n_scales", type=int)
         parser.add_argument("--n_angles", type=int, default=3)
-        parser.add_argument("--n_ratios", type=int, default=2)
+        parser.add_argument("--n_ratios", type=int, default=3)
+        parser.add_argument("--n_classes", type=int, default=3, help="Number of object classes to track. Defaults to 3")
         parser.add_argument(
             "--regularization",
             type=str,
