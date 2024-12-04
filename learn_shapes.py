@@ -93,7 +93,7 @@ class ShapesModel(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("Network")
         parser.add_argument("--net", type=str)
-        parser.add_argument("--n_scales", type=int)
+        parser.add_argument("--n_scales", type=int, required=True)
         parser.add_argument("--n_angles", type=int, default=3)
         parser.add_argument("--n_ratios", type=int, default=3)
         parser.add_argument("--n_classes", type=int, default=3, help="Number of object classes to track. Defaults to 3")
@@ -279,7 +279,9 @@ class ShapesModel(pl.LightningModule):
         loss_co, loss_reg, spike_reg, y_gauss = self.calc_loss(
             out, out_co, y_co_norm, snn_reg
         )
-        loss = loss_co.mean() + loss_reg.mean() + spike_reg.mean()
+        loss = loss_co.mean() + loss_reg.mean()
+        if spike_reg.numel() > 0:
+            loss = loss + spike_reg.mean()
 
         # Visualize every 1000 steps
         if self.global_step % 1000 == 0:
