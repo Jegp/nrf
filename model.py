@@ -101,7 +101,7 @@ class SpatioTemporalRF(torch.nn.Module):
         super().__init__()
         self.downsample = torch.nn.AvgPool2d(2)
 
-        if not p.init_scheme == "uniform":
+        if p.init_scheme == "uniform":
             self.spatial = torch.nn.Conv2d(
                 p.spatial_p.channels_in,
                 p.spatial_p.channels_out,
