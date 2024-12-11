@@ -148,17 +148,18 @@ class ShapesModel(pl.LightningModule):
         return parent_parser
 
     def extract_kernels(self, net, f=lambda x: x.clone().detach().cpu()):
-        ks = []
-        for m in net.children():
-            ks += self.extract_kernels(m)
+        kernels = []
+        for i, channel in enumerate(net.channels):
+            for n, st in enumerate(channel.spatiotemporal):
+                label = f"channel/{i}/{n}"
+                if isinstance(st.spatial, torch.nn.Conv2d):
+                    kernels.append((f(st.spatial.weight), label))
+                else:
+                    kernels.append((f(st.spatial.weights), label))
+            kernels.append((f(channel.output_layers[1].weight), f"channel/{i}/output"))
+        kernels.append((f(net.classifier[0].weight), f"classifier"))
+        return kernels
 
-        if isinstance(net, norse.Lift):
-            ks += self.extract_kernels(net.lifted_module)
-        elif isinstance(net, torch.nn.Conv2d) or isinstance(
-            net, torch.nn.ConvTranspose2d
-        ):
-            ks.append(net.weight.clone().detach().cpu())
-        return ks
 
     def extract_time_constants(self, m, fn):
         l = []
@@ -285,7 +286,6 @@ class ShapesModel(pl.LightningModule):
 
         # Visualize every 1000 steps
         if self.global_step % 1000 == 0:
-            # Log prediction
             self.show_prediction(
                 x[-1, 0, 0],
                 y_co[-1, 0, 0],
@@ -396,34 +396,6 @@ class ShapesModel(pl.LightningModule):
             raise ValueError("Unknown stepper")
         return optims, steppers
 
-    def on_after_backward(self) -> None:
-        if self.global_step % 1000 > 0:  # Only log every 1000 steps
-            return
-        # Extract time constant gradients
-        tc_and_gradients = self.extract_time_constants(
-            self.net,
-            lambda m: (
-                m.clone().detach().cpu(),
-                m.grad.clone().detach().cpu(),
-            ),
-        )
-        try:
-            for i, (t, g) in enumerate(tc_and_gradients):
-                self.log(f"hist/grad/{i}", g, self.global_step)
-                self.log(f"hist/tau/{i}", t, self.global_step)
-
-            # Extract kernel gradients
-            kernel_gradients = self.extract_kernels(
-                self.net, lambda x: x.grad.clone().cpu()
-            )
-            for i, l in enumerate(kernel_gradients):
-                self.logger.experiment.add_histogram(
-                    f"hist/conv{i}/grad", l, self.global_step
-                )
-        except Exception as e:
-            print(f"Failure to log backward step {self.global_step}", e)
-            
-
     def show_prediction(self, x, x_co, y_im, y_co_pred, y_expected):
         im = render_prediction(
             x.detach().cpu(),
@@ -437,10 +409,10 @@ class ShapesModel(pl.LightningModule):
                 f"image/prediction", im, self.global_step, dataformats="HWC"
             )
             ks = self.extract_kernels(self.net)
-            for i, k in enumerate(ks):
+            for k, label in ks:
                 kernel_image = render_kernels(k)
                 self.logger.experiment.add_image(
-                    f"image/kernels/{i}", kernel_image, self.global_step
+                    f"kernel/{label}", kernel_image, self.global_step
                 )
 
         except Exception as e:
