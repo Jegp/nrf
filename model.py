@@ -101,21 +101,22 @@ class SpatioTemporalRF(torch.nn.Module):
         super().__init__()
         self.downsample = torch.nn.AvgPool2d(2)
 
-        if p.init_scheme == "uniform":
-            self.spatial = torch.nn.Conv2d(
-                p.spatial_p.channels_in,
-                p.spatial_p.channels_out,
-                kernel_size=p.spatial_p.kernel_size,
-                bias=False,
-                padding=p.spatial_p.padding,
-            ).to(p.device)
-        else:
-            self.spatial = norse.SpatialReceptiveField2d(
+        self.spatial = torch.nn.Conv2d(
+            p.spatial_p.channels_in,
+            p.spatial_p.channels_out,
+            kernel_size=p.spatial_p.kernel_size,
+            bias=False,
+            padding=p.spatial_p.padding,
+        ).to(p.device)
+        if p.init_scheme == "rf":
+            weights = norse.SpatialReceptiveField2d(
                 p.spatial_p.channels_in,
                 p.spatial_p.kernel_size,
                 p.spatial_p.rf_parameters,
                 p.spatial_p.padding,
-            ).to(p.device)
+                optimize_fields=False
+            ).to(p.device).weights
+            self.spatial.weight.data = weights
 
         self.temporal = TemporalRF(p.tau, p.activation, p.init_scheme, p.device).to(
             p.device
