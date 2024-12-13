@@ -118,6 +118,7 @@ class SpatioTemporalRF(torch.nn.Module):
             ).to(p.device).weights
             self.spatial.weight.data = weights
 
+        self.norm = torch.nn.BatchNorm2d(p.spatial_p.channels_out)
         self.temporal = TemporalRF(p.tau, p.activation, p.init_scheme, p.device).to(
             p.device
         )
@@ -125,6 +126,7 @@ class SpatioTemporalRF(torch.nn.Module):
     def forward(self, x: torch.Tensor, state=None):
         x = self.downsample(x)
         x = self.spatial(x)
+        x = self.norm(x)
         x, state = self.temporal(x, state)
         return x, state
 
@@ -222,7 +224,7 @@ class SpatioTemporalModel(torch.nn.Module):
         self.classifier = norse.SequentialState(
             torch.nn.ConvTranspose2d(p.n_classes, p.n_classes, 5, bias=True),
             torch.nn.BatchNorm2d(p.n_classes),
-            TemporalRF(900, classifier_activation, p.init_scheme, p.device),
+            TemporalRF(channel_taus.max(), classifier_activation, p.init_scheme, p.device),
             torch.nn.Dropout(0.1),
         ).to(p.device)
 
@@ -255,7 +257,6 @@ class SpatioTemporalModel(torch.nn.Module):
             )
             output_stack.append(classifier_out)
 
-        states = [*channel_state, classifier_state]
         activations = [torch.stack(v).mean() for v in channel_activations.values()]
 
         return (
