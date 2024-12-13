@@ -24,7 +24,7 @@ class SpatioTemporalRFParameters:
     init_scheme: str
     tau: float
 
-    device: str = "cuda"
+    device: str
 
 
 @dataclass
@@ -36,8 +36,8 @@ class SpatioTemporalChannelParameters:
     activation: str
     init_scheme: str
 
+    device: str
     padding: str = "same"
-    device: str = "cuda"
 
 
 @dataclass
@@ -139,7 +139,7 @@ class SpatioTemporalChannel(torch.nn.Module):
         """
         super().__init__()
         layer_parameters = [
-            SpatioTemporalRFParameters(l, p.activation, p.init_scheme, p.tau)
+            SpatioTemporalRFParameters(l, p.activation, p.init_scheme, p.tau, p.device)
             for l in p.spatial_layers
         ]
         self.spatiotemporal = norse.SequentialState(
@@ -172,7 +172,7 @@ class SpatioTemporalModel(torch.nn.Module):
             1
             / norse.functional.receptive_field.temporal_scale_distribution(
                 p.n_scales, min_scale=4, c=2  # Corresponds to < 0.5
-            )
+            ).to(p.device)
         )
         if p.init_scheme == "uniform":  # Uniform channel taus
             channel_taus.uniform_(channel_taus.min(), channel_taus.max())
