@@ -137,7 +137,7 @@ class ShapesModel(pl.LightningModule):
         parser.add_argument(
             "--optimizer",
             type=str,
-            choices=["adagrad", "adam", "rmsprop", "sgd", "spacetime"],
+            choices=["adagrad", "adam", "rmsprop", "sgd"],
             default="adam",
         )
         parser.add_argument(
@@ -161,22 +161,14 @@ class ShapesModel(pl.LightningModule):
         return kernels
 
 
-    def extract_time_constants(self, m, fn):
-        l = []
-        if isinstance(m, list):
-            for i in m:
-                l += self.extract_time_constants(i, fn)
-            return l
-
-        children = list(m.children())
-        if len(children) > 0:
-            l += self.extract_time_constants(children, fn)
-
-        if isinstance(m, TemporalRF) and hasattr(m, "tau_mem_inv"):
-            l.extend([fn(m.tau_mem_inv)])
-            return l  # Return early
-
-        return l
+    def extract_time_constants(self, net):
+        if self.args.net == "ann":
+            return []
+        taus = []
+        for i, channel in enumerate(net.channels):
+            for n, st in enumerate(channel.spatiotemporal):
+                taus.append((st.temporal.temporal[0].p.tau_mem_inv.item(), f"channel/{i}/{n}"))
+        return taus
 
     def normalized_to_image(self, coordinate):
         return ((coordinate + 1) * self.resolution.to(self.args.device)) * 0.5
@@ -224,6 +216,33 @@ class ShapesModel(pl.LightningModule):
             else:
                 spatial.extend(l.parameters())
         return spatial, temporal
+
+    def show_prediction(self, x, x_co, y_im, y_co_pred, y_expected):
+        im = render_prediction(
+            x.detach().cpu(),
+            x_co.detach().cpu(),
+            y_im.detach().cpu().squeeze(),
+            y_co_pred.detach().cpu(),
+            y_expected.detach().cpu(),
+        )
+        try:
+            self.logger.experiment.add_image(
+                f"image/prediction", im, self.global_step, dataformats="HWC"
+            )
+            ks = self.extract_kernels(self.net)
+            for k, label in ks:
+                kernel_image = render_kernels(k)
+                self.logger.experiment.add_image(
+                    f"kernel/{label}", kernel_image, self.global_step
+                )
+            ts = self.extract_time_constants(self.net)
+            for t, label in ts:
+                self.logger.experiment.add_histogram(
+                    f"taus/{label}", t, self.global_step
+                )
+
+        except Exception as e:
+            print(f"Failure to log step {self.global_step}", e)
 
     def forward(self, warmup, x, prepend_warmup: bool = False):
         # Warmup
@@ -285,14 +304,14 @@ class ShapesModel(pl.LightningModule):
             loss = loss + spike_reg.mean()
 
         # Visualize every 1000 steps
-        if self.global_step % 1000 == 0:
-            self.show_prediction(
-                x[-1, 0, 0],
-                y_co[-1, 0, 0],
-                out[-1, 0, 0],
-                self.normalized_to_image(out_co[-1, 0, 0]),
-                y_gauss[-1, 0, 0],
-            )
+        # if self.global_step % 1000 == 0:
+        self.show_prediction(
+            x[-1, 0, 0],
+            y_co[-1, 0, 0],
+            out[-1, 0, 0],
+            self.normalized_to_image(out_co[-1, 0, 0]),
+            y_gauss[-1, 0, 0],
+        )
 
         self.log("train/loss", loss.mean(), sync_dist=True)
         self.log("train/norm", loss_co.mean(), sync_dist=True)
@@ -363,18 +382,6 @@ class ShapesModel(pl.LightningModule):
             optims = [
                 torch.optim.SGD(params, lr=self.lr, weight_decay=self.args.weight_decay)
             ]
-        elif self.optimizer == "spacetime":
-            spatial, temporal = self.extract_spatio_temporal_parameters(self.net)
-            optims = [
-                torch.optim.Adam(
-                    spatial, lr=self.lr, weight_decay=self.args.weight_decay
-                ),
-                torch.optim.Adam(
-                    temporal,
-                    lr=self.lr * self.args.lr_temporal_factor,
-                    weight_decay=self.args.weight_decay,
-                ),
-            ]
         else:
             optims = [torch.optim.RMSprop(params, lr=self.lr, weight_decay=1e-5)]
         if self.lr_step == "step":
@@ -395,28 +402,6 @@ class ShapesModel(pl.LightningModule):
         else:
             raise ValueError("Unknown stepper")
         return optims, steppers
-
-    def show_prediction(self, x, x_co, y_im, y_co_pred, y_expected):
-        im = render_prediction(
-            x.detach().cpu(),
-            x_co.detach().cpu(),
-            y_im.detach().cpu().squeeze(),
-            y_co_pred.detach().cpu(),
-            y_expected.detach().cpu(),
-        )
-        try:
-            self.logger.experiment.add_image(
-                f"image/prediction", im, self.global_step, dataformats="HWC"
-            )
-            ks = self.extract_kernels(self.net)
-            for k, label in ks:
-                kernel_image = render_kernels(k)
-                self.logger.experiment.add_image(
-                    f"kernel/{label}", kernel_image, self.global_step
-                )
-
-        except Exception as e:
-            print(f"Failure to log step {self.global_step}", e)
 
 
 def train(config, args, callbacks=[]):

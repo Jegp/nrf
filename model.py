@@ -73,14 +73,14 @@ class TemporalRF(torch.nn.Module):
                 torch.nn.Parameter(torch.as_tensor(tau, device=device).float()),
             )
             p = norse.LIFBoxParameters(tau_mem_inv=self.tau_mem_inv, v_th=torch.tensor([0.1], device=device))
-            temporal_layers.append(norse.LIFBoxCell(p))
+            temporal_layers.append(norse.LIFBoxCell(p, dt=1))
         elif activation.lower() == "li":
             self.register_parameter(
                 "tau_mem_inv",
                 torch.nn.Parameter(torch.as_tensor(tau, device=device).float()),
             )
             p = norse.LIBoxParameters(tau_mem_inv=self.tau_mem_inv)
-            temporal_layers.append(norse.LIBoxCell(p))
+            temporal_layers.append(norse.LIBoxCell(p, dt=1))
             temporal_layers.append(torch.nn.ReLU())
         else:
             raise ValueError(f"Unknown activation function: {activation}")
@@ -167,9 +167,9 @@ class SpatioTemporalModel(torch.nn.Module):
         """
         super().__init__()
         channel_taus = (
-            1000
+            1
             / norse.functional.receptive_field.temporal_scale_distribution(
-                p.n_scales, min_scale=1.2  # Corresponds to < 913
+                p.n_scales, min_scale=4, c=2  # Corresponds to < 0.5
             )
         )
         if p.init_scheme == "uniform":  # Uniform channel taus
