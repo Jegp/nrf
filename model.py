@@ -72,7 +72,7 @@ class TemporalRF(torch.nn.Module):
                 "tau_mem_inv",
                 torch.nn.Parameter(torch.as_tensor(tau, device=device).float()),
             )
-            p = norse.LIFBoxParameters(tau_mem_inv=self.tau_mem_inv, v_th=torch.tensor([0.1], device=device))
+            p = norse.LIFBoxParameters(tau_mem_inv=self.tau_mem_inv, v_th=torch.tensor([0.1], device=device), alpha=torch.tensor([10.0], device=device))
             temporal_layers.append(norse.LIFBoxCell(p, dt=1))
         elif activation.lower() == "li":
             self.register_parameter(
