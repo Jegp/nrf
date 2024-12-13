@@ -115,7 +115,7 @@ class ShapesModel(pl.LightningModule):
             default=1e-4,
         )
         parser.add_argument("--regularization_activity_mean", type=float, default=2e-2)
-        parser.add_argument("--regularization_activity_scale", type=float, default=100)
+        parser.add_argument("--regularization_activity_scale", type=float, default=0.1)
         parser.add_argument(
             "--coordinate",
             type=str,
@@ -169,7 +169,7 @@ class ShapesModel(pl.LightningModule):
             for n, st in enumerate(channel.spatiotemporal):
                 if n not in taus:
                     taus[n] = []
-                taus[n].append(st.temporal.temporal[0].p.tau_mem_inv.item())
+                taus[n].append(st.temporal.temporal[0].p.tau_mem_inv)
         return taus
 
     def normalized_to_image(self, coordinate):
@@ -240,7 +240,7 @@ class ShapesModel(pl.LightningModule):
             ts = self.extract_time_constants(self.net)
             for block, taus in ts.items():
                 self.logger.experiment.add_histogram(
-                    f"taus/block/{block}", taus, self.global_step
+                    f"taus/block/{block}", torch.stack(taus), self.global_step
                 )
 
         except Exception as e:
