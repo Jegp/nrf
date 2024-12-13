@@ -164,10 +164,12 @@ class ShapesModel(pl.LightningModule):
     def extract_time_constants(self, net):
         if self.args.net == "ann":
             return []
-        taus = []
+        taus = {}
         for i, channel in enumerate(net.channels):
             for n, st in enumerate(channel.spatiotemporal):
-                taus.append((st.temporal.temporal[0].p.tau_mem_inv.item(), f"channel/{i}/{n}"))
+                if n not in taus:
+                    taus[n] = []
+                taus[n].append(st.temporal.temporal[0].p.tau_mem_inv.item())
         return taus
 
     def normalized_to_image(self, coordinate):
@@ -236,9 +238,9 @@ class ShapesModel(pl.LightningModule):
                     f"kernel/{label}", kernel_image, self.global_step
                 )
             ts = self.extract_time_constants(self.net)
-            for t, label in ts:
+            for block, taus in ts.items():
                 self.logger.experiment.add_histogram(
-                    f"taus/{label}", t, self.global_step
+                    f"taus/block/{block}", taus, self.global_step
                 )
 
         except Exception as e:
