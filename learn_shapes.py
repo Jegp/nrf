@@ -39,10 +39,14 @@ class ShapesModel(pl.LightningModule):
 
         # Network
         p = SpatioTemporalModelParameters(
-            n_scales=args.n_scales,
+            n_temporal_scales=args.n_temporal_scales,
+            n_spatial_scales=args.n_spatial_scales,
             n_angles=args.n_angles,
+            n_angles_grow=args.n_angles_grow,
             n_ratios=args.n_ratios,
             n_derivatives=n_derivatives,
+            separate_spatial_channels=args.separate_spatial_channels,
+            weight_sharing=args.weight_sharing,
             activation=activation,
             init_scheme=args.init_scheme,
             channels_in=2 if args.sum_frames else (args.stack_frames * 2),
@@ -93,10 +97,23 @@ class ShapesModel(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("Network")
         parser.add_argument("--net", type=str)
-        parser.add_argument("--n_scales", type=int, required=True)
-        parser.add_argument("--n_angles", type=int, default=3)
-        parser.add_argument("--n_ratios", type=int, default=3)
-        parser.add_argument("--n_classes", type=int, default=3, help="Number of object classes to track. Defaults to 3")
+        parser.add_argument("--n_spatial_scales", type=int, required=True)
+        parser.add_argument("--n_temporal_scales", type=int, required=True)
+        parser.add_argument("--n_angles", type=int, default=4)
+        parser.add_argument("--n_ratios", type=int, default=2)
+        parser.add_argument(
+            "--n_angles_grow", type=int, default=0
+        )  # Whether to increase the number of angles at high excentricities
+        parser.add_argument(
+            "--n_classes",
+            type=int,
+            default=3,
+            help="Number of object classes to track. Defaults to 3",
+        )
+        # Whether to separate spatial channels along with the temporal (for a total of S*T channels)
+        # or keep them inside the temporal channel (for a total of T channels)
+        parser.add_argument("--separate_spatial_channels", type=bool, default=False)
+        parser.add_argument("--weight_sharing", type=int, default=False)
         parser.add_argument(
             "--regularization",
             type=str,
@@ -152,18 +169,13 @@ class ShapesModel(pl.LightningModule):
         for i, channel in enumerate(net.channels):
             for n, st in enumerate(channel.spatiotemporal):
                 label = f"channel/{i}/{n}"
-                if isinstance(st.spatial, torch.nn.Conv2d):
-                    kernels.append((f(st.spatial.weight), label))
-                else:
-                    kernels.append((f(st.spatial.weights), label))
-            kernels.append((f(channel.output_layers[1].weight), f"channel/{i}/output"))
+                kernels.append((f(st.spatial.spatial.weight), label))
         kernels.append((f(net.classifier[0].weight), f"classifier"))
         return kernels
 
-
     def extract_time_constants(self, net):
         if self.args.net == "ann":
-            return []
+            return {}
         taus = {}
         for i, channel in enumerate(net.channels):
             for n, st in enumerate(channel.spatiotemporal):
@@ -232,12 +244,16 @@ class ShapesModel(pl.LightningModule):
                 f"image/prediction", im, self.global_step, dataformats="HWC"
             )
             ks = self.extract_kernels(self.net)
+            ks_file = f"{self.args.log_root}/v{self.logger.version}_{self.args.name}_kernels_{self.global_step}.dat"
+            torch.save(ks, ks_file)
             for k, label in ks:
                 kernel_image = render_kernels(k)
                 self.logger.experiment.add_image(
                     f"kernel/{label}", kernel_image, self.global_step
                 )
             ts = self.extract_time_constants(self.net)
+            ts_file = f"{self.args.log_root}/v{self.logger.version}_{self.args.name}_taus_{self.global_step}.dat"
+            torch.save(ts, ts_file)
             for block, taus in ts.items():
                 self.logger.experiment.add_histogram(
                     f"taus/block/{block}", torch.stack(taus), self.global_step
@@ -306,24 +322,24 @@ class ShapesModel(pl.LightningModule):
             loss = loss + spike_reg.mean()
 
         # Visualize every 1000 steps
-        # if self.global_step % 1000 == 0:
-        self.show_prediction(
-            x[-1, 0, 0],
-            y_co[-1, 0, 0],
-            out[-1, 0, 0],
-            self.normalized_to_image(out_co[-1, 0, 0]),
-            y_gauss[-1, 0, 0],
-        )
+        if self.global_step % 1000 == 0:
+            self.show_prediction(
+                x[-1, 0, 0],
+                y_co[-1, 0, 0],
+                out[-1, 0, 0],
+                self.normalized_to_image(out_co[-1, 0, 0]),
+                y_gauss[-1, 0, 0],
+            )
 
-        self.log("train/loss", loss.mean(), sync_dist=True)
-        self.log("train/norm", loss_co.mean(), sync_dist=True)
-        self.log("train/reg", loss_reg.mean(), sync_dist=True)
-        self.log("train/spike_reg", spike_reg.mean(), sync_dist=True)
+        self.log("train/loss", loss.mean())
+        self.log("train/norm", loss_co.mean())
+        self.log("train/reg", loss_reg.mean())
+        self.log("train/spike_reg", spike_reg.mean())
         for i, layer in enumerate(snn_reg):
-            self.log(f"train/out/{i}", layer.mean(), sync_dist=True)
-        self.log(f"train/out/{len(snn_reg)}", out.mean(), sync_dist=True)
+            self.log(f"train/out/{i}", layer.mean())
+        self.log(f"train/out/{len(snn_reg)}", out.mean())
         if self.lr_schedulers() is not None:
-            self.log("lr", self.lr_schedulers().get_last_lr()[0], sync_dist=True)
+            self.log("lr", self.lr_schedulers().get_last_lr()[0])
 
         dic = {"loss": loss.mean(), "norm": loss_co.mean(), "reg": loss_reg.mean()}
         return dic
@@ -345,10 +361,9 @@ class ShapesModel(pl.LightningModule):
             "spike_reg": spike_reg.mean(),
         }
 
-        self.log("val/loss", loss.mean(), sync_dist=True)
-        args = self.args
+        self.log("val/loss", loss.mean())
         with open(
-            f"{args.name}_{pathlib.Path(args.data_root).name}.csv",
+            f"{self.args.name}_{pathlib.Path(self.args.data_root).name}.csv",
             "a",
         ) as fp:
             fp.write(
@@ -450,10 +465,12 @@ def train(config, args, callbacks=[]):
     )
 
     args.sum_suffix = "S" if args.sum_frames else ""
-    args.name = f"{args.net}_{args.init_scheme}_{args.stack_frames}{args.sum_suffix}"
+    data_root_name = pathlib.Path(args.data_root).name
+    args.name = f"{args.net}_{args.init_scheme}_{args.stack_frames}{args.sum_suffix}_s{args.weight_sharing:b}_({data_root_name})"
     logger = pl.loggers.TensorBoardLogger(
-        args.log_root, name=f"{args.name}_({pathlib.Path(args.data_root).name})"
+        args.log_root, name=f"{args.name}"
     )
+    logger.log_hyperparams(args.__dict__)
 
     trainer = pl.Trainer.from_argparse_args(
         args,
