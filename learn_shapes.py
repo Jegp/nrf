@@ -39,10 +39,13 @@ class ShapesModel(pl.LightningModule):
 
         # Network
         p = SpatioTemporalModelParameters(
-            n_scales=args.n_scales,
+            n_temporal_scales=args.n_temporal_scales,
+            n_spatial_scales=args.n_spatial_scales,
             n_angles=args.n_angles,
             n_ratios=args.n_ratios,
             n_derivatives=n_derivatives,
+            separate_spatial_channels=args.separate_spatial_channels,
+            weight_sharing=args.weight_sharing,
             activation=activation,
             init_scheme=args.init_scheme,
             channels_in=2 if args.sum_frames else (args.stack_frames * 2),
@@ -93,10 +96,20 @@ class ShapesModel(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("Network")
         parser.add_argument("--net", type=str)
-        parser.add_argument("--n_scales", type=int, required=True)
+        parser.add_argument("--n_spatial_scales", type=int, required=True)
+        parser.add_argument("--n_temporal_scales", type=int, required=True)
         parser.add_argument("--n_angles", type=int, default=3)
         parser.add_argument("--n_ratios", type=int, default=3)
-        parser.add_argument("--n_classes", type=int, default=3, help="Number of object classes to track. Defaults to 3")
+        parser.add_argument(
+            "--n_classes",
+            type=int,
+            default=3,
+            help="Number of object classes to track. Defaults to 3",
+        )
+        # Whether to separate spatial channels along with the temporal (for a total of S*T channels)
+        # or keep them inside the temporal channel (for a total of T channels)
+        parser.add_argument("--separate_spatial_channels", type=bool, default=False)
+        parser.add_argument("--weight_sharing", type=bool, default=False)
         parser.add_argument(
             "--regularization",
             type=str,
@@ -152,14 +165,9 @@ class ShapesModel(pl.LightningModule):
         for i, channel in enumerate(net.channels):
             for n, st in enumerate(channel.spatiotemporal):
                 label = f"channel/{i}/{n}"
-                if isinstance(st.spatial, torch.nn.Conv2d):
-                    kernels.append((f(st.spatial.weight), label))
-                else:
-                    kernels.append((f(st.spatial.weights), label))
-            kernels.append((f(channel.output_layers[1].weight), f"channel/{i}/output"))
+                kernels.append((f(st.spatial.spatial.weight), label))
         kernels.append((f(net.classifier[0].weight), f"classifier"))
         return kernels
-
 
     def extract_time_constants(self, net):
         if self.args.net == "ann":
@@ -306,14 +314,14 @@ class ShapesModel(pl.LightningModule):
             loss = loss + spike_reg.mean()
 
         # Visualize every 1000 steps
-        # if self.global_step % 1000 == 0:
-        self.show_prediction(
-            x[-1, 0, 0],
-            y_co[-1, 0, 0],
-            out[-1, 0, 0],
-            self.normalized_to_image(out_co[-1, 0, 0]),
-            y_gauss[-1, 0, 0],
-        )
+        if self.global_step % 1000 == 0:
+            self.show_prediction(
+                x[-1, 0, 0],
+                y_co[-1, 0, 0],
+                out[-1, 0, 0],
+                self.normalized_to_image(out_co[-1, 0, 0]),
+                y_gauss[-1, 0, 0],
+            )
 
         self.log("train/loss", loss.mean(), sync_dist=True)
         self.log("train/norm", loss_co.mean(), sync_dist=True)
