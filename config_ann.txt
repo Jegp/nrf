@@ -1,0 +1,16 @@
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=12 weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=12 weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=10  weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=10 weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=16 weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=16 weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=10  weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=10  weight_sharing=1 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=16 weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=16 weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=10  weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=10  weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=0
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=16 weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1
+net=ann coordinate=dsnt   stack_frames=1 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=16 weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=rf      init_scheme_temporal=rf      batch_size=10  weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1
+net=ann coordinate=dsnt   stack_frames=8 init_scheme_spatial=uniform init_scheme_temporal=uniform batch_size=10  weight_sharing=0 dropout=0.05 n_angles=4 n_ratios=3 batch_normalization=1

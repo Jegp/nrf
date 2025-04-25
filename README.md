@@ -52,6 +52,26 @@ python3 learn_shapes.py <path-to-data> <path-to-log>
 
 A description of the parameters can be found using `python3 learn_shapes.py --help`.
 
+### Reproducing the results in the paper
+
+The paper uses specific sets of parameters that are available in the `config_ann.txt` and `config_snn.txt` files. The data in the paper was procured from the [Swedish Alvis cluster](https://www.c3se.chalmers.se/about/Alvis/).
+The cluster-specific code is available upon request, but generally, the code can be run with the following script:
+
+```bash
+# Set basic flags common for all models
+DATADIR=<path-to-dataset>
+LOGDIR=<path-to-logs>
+FLAGS="${DATADIR} ${LOGDIR} --n_spatial_scales=4 --n_temporal_scales=4 --max_epochs=50 --devices=1 --accelerator=gpu --strategy=dp"
+
+# Use the flags in the config files to set the following variables:
+MODEL_FLAGS="$FLAGS --net=$net --coordinate=$coordinate --stack_frames=$stack_frames --init_scheme_spatial=$init_scheme_spatial \
+ --init_scheme_temporal=$init_scheme_temporal --batch_size=$batch_size --weight_sharing=$weight_sharing --dropout=$dropout \
+ --n_angles=$n_angles --n_ratios=$n_ratios --batch_normalization=$batch_normalization"
+
+# Run the model
+python3 learn_shapes.py $MODEL_FLAGS
+```
+
 ## Acknowledgements
 All simulations, neuron models, and the spatio-temporal receptive fields rely on [the Norse library](https://github.com/norse/norse).
 It should be noted that the implementation of affine directional derivatives in Norse is based on
