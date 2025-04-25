@@ -13,6 +13,8 @@ class SpatialLayerParameters:
     channels_out: int
     init_scheme: str
     device: str
+    norm: bool
+    resolution: torch.Size
     padding: str = "same"
 
 
@@ -21,8 +23,10 @@ class SpatioTemporalRFParameters:
     spatial_layer: Union["SpatialRF", SpatialLayerParameters]
     temporal_layer: Optional["TemporalRF"]
     activation: str
-    init_scheme: str
+    init_scheme_spatial: str
+    init_scheme_temporal: str
     tau: float
+    skip_connections: bool
 
     device: str
 
@@ -33,9 +37,11 @@ class SpatioTemporalChannelParameters:
     temporal_layer: Optional["TemporalRF"]
     channels_out: int
     tau: float
+    skip_connections: bool
 
     activation: str
-    init_scheme: str
+    init_scheme_spatial: str
+    init_scheme_temporal: str
 
     device: str
     padding: str = "same"
@@ -48,14 +54,18 @@ class SpatioTemporalModelParameters:
     n_angles: int
     n_angles_grow: bool
     n_ratios: int
-    n_derivatives: int
+    derivatives: List[tuple]
     separate_spatial_channels: bool
     activation: str
-    init_scheme: str
+    init_scheme_spatial: str
+    init_scheme_temporal: str
     channels_in: int
     n_classes: int
-    resolution: int
+    resolution: torch.Size
     weight_sharing: bool
+    dropout: float
+    skip_connections: bool
+    batch_normalization: bool
 
     channel_layers: int = 2
     padding: str = "same"
@@ -67,6 +77,12 @@ class TemporalRF(torch.nn.Module):
     def __init__(self, tau: float, activation: str, init_scheme: str, device: str):
         """
         A single temporal receptive field.
+
+        Arguments:
+            tau: The time constant for the temporal receptive field.
+            activation: The activation function to use. Can be "relu", "lif", or "li".
+            init_scheme: The initialization scheme for the weights.
+            device: The device to use for the model (e.g., "cuda" or "cpu").
         """
         super().__init__()
         temporal_layers = []
@@ -106,6 +122,9 @@ class SpatialRF(torch.nn.Module):
     def __init__(self, p: SpatialLayerParameters):
         """
         A single spatial receptive field.
+
+        Arguments:
+            p (SpatialLayerParameters): Parameters for the spatial receptive field.
         """
         super().__init__()
         self.spatial = torch.nn.Conv2d(
@@ -117,7 +136,7 @@ class SpatialRF(torch.nn.Module):
         ).to(p.device)
         if p.init_scheme == "rf":
             weights = norse.functional.receptive_field.spatial_receptive_fields_with_derivatives(
-                p.rf_parameters, p.kernel_size, domain=5
+                p.rf_parameters, p.kernel_size, domain=6
             )
             if self.spatial.weight.shape[0] > self.spatial.weight.shape[1]:
                 weights = weights.unsqueeze(1).repeat(1, p.channels_in, 1, 1)
@@ -125,9 +144,16 @@ class SpatialRF(torch.nn.Module):
                 weights = weights.unsqueeze(0).repeat(p.channels_out, 1, 1, 1)
             self.spatial.weight.data = weights
         self.channels_out = p.channels_out
+        if p.norm:
+            self.norm = torch.nn.BatchNorm2d(p.channels_in)
+        else:
+            self.norm = None
 
     def forward(self, x: torch.Tensor):
-        return self.spatial(x)
+        if self.norm is not None:
+            x = self.norm(x)
+        x = self.spatial(x)
+        return x
 
 
 class SpatioTemporalRF(torch.nn.Module):
@@ -135,6 +161,10 @@ class SpatioTemporalRF(torch.nn.Module):
     def __init__(self, p: SpatioTemporalRFParameters):
         """
         A single receptive field for a spatio-temporal layer.
+        It's essentially just a sequence of a SpatialRF and TemporalRF.
+
+        Arguments:
+            p (SpatioTemporalRFParameters): Parameters for the spatio-temporal receptive field.
         """
         super().__init__()
 
@@ -147,23 +177,33 @@ class SpatioTemporalRF(torch.nn.Module):
         self.temporal = (
             p.temporal_layer
             if p.temporal_layer is not None
-            else TemporalRF(p.tau, p.activation, p.init_scheme, p.device)
+            else TemporalRF(p.tau, p.activation, p.init_scheme_temporal, p.device)
         )
-        # self.bn = torch.nn.BatchNorm2d(self.spatial.channels_out)
+        shape_out = self.spatial.spatial.weight.shape[-2]
+
+        self.skip_weight = torch.nn.Parameter(torch.tensor([0.9], device=p.device))
+        self.skip_connections = p.skip_connections
 
     def forward(self, x: torch.Tensor, state=None):
         x = self.downsample(x)
-        x = self.spatial(x)
-        # x = self.bn(x)
-        x, state = self.temporal(x, state)
+        x_spatial = self.spatial(x)
+        x, state = self.temporal(x_spatial, state)
+        if self.skip_connections:
+            x = x + (x_spatial * self.skip_weight)
         return x, state
+
+    def spatiotemporal_parameters(self):
+        return self.spatial.parameters(), self.temporal.parameters()
 
 
 class SpatioTemporalChannel(torch.nn.Module):
 
     def __init__(self, p: SpatioTemporalChannelParameters):
         """
-        A channel with multiple receptive fields.
+        A channel with multiple sequential SpatioTemporalRFs.
+
+        Arguments:
+            p (SpatioTemporalChannelParameters): Parameters for the spatio-temporal channel.
         """
         super().__init__()
         layer_parameters = [
@@ -171,38 +211,49 @@ class SpatioTemporalChannel(torch.nn.Module):
                 spatial_layer=l,
                 temporal_layer=p.temporal_layer,
                 activation=p.activation,
-                init_scheme=p.init_scheme,
+                init_scheme_spatial=p.init_scheme_spatial,
+                init_scheme_temporal=p.init_scheme_temporal,
                 tau=p.tau,
                 device=p.device,
+                skip_connections=p.skip_connections
             )
             for l in p.spatial_layers
         ]
-        self.spatiotemporal = norse.SequentialState(
-            *[SpatioTemporalRF(l) for l in layer_parameters],
-        )
-        self.output_layer = torch.nn.AvgPool2d(2)
-        # self.output_layers = torch.nn.Sequential(
-        #     torch.nn.AvgPool2d(2),
-        #     torch.nn.Conv2d(
-        #         layer_parameters[-1].spatial_p.channels_out,
-        #         p.channels_out,
-        #         kernel_size=5,
-        #         bias=False,
-        #         padding=p.padding,
-        #     ),
-        # ).to(p.device)
+        self.spatiotemporal = torch.nn.ModuleList([SpatioTemporalRF(l) for l in layer_parameters])
+        self.output_layer = torch.nn.MaxPool2d(2)
 
     def forward(self, x: torch.Tensor, state=None):
-        activations, state = self.spatiotemporal(x, state)
-        return self.output_layer(activations), state, activations
-        # return self.output_layers(activations), state, activations
+        activations = []
+        if state is None:
+            state = [None for _ in range(len(self.spatiotemporal))]
+        for i, layer in enumerate(self.spatiotemporal):
+            x, state[i] = layer(x, state[i])
+            activations.append(x)
+        activation_means = torch.stack([a.mean() for a in activations])
+        output = self.output_layer(x)
+        return output, state, activation_means
+
+    def spatiotemporal_parameters(self):
+        spatial = []
+        temporal = []
+        for l in self.spatiotemporal:
+            s, t = l.spatiotemporal_parameters()
+            spatial.extend(s)
+            temporal.extend(t)
+        spatial.extend(self.output_layer.parameters())
+        return spatial, temporal
 
 
 class SpatioTemporalModel(torch.nn.Module):
 
     def __init__(self, p: SpatioTemporalModelParameters):
         """
-        A model with multiple spatio-temporal channels.
+        A model with multiple spatio-temporal channels that run in parallel.
+        Each channel has its own set of spatial and temporal receptive fields.
+        Parameters may be shared between the channels or not.
+
+        Arguments:
+            p (SpatioTemporalModelParameters): Parameters for the spatio-temporal model.
         """
         super().__init__()
         channel_taus = (
@@ -211,7 +262,7 @@ class SpatioTemporalModel(torch.nn.Module):
                 p.n_temporal_scales, min_scale=30, c=2  # Corresponds to < 0.2
             ).to(p.device)
         )
-        if p.init_scheme == "uniform":  # Uniform channel taus
+        if p.init_scheme_temporal == "uniform":  # Uniform channel taus
             channel_taus.uniform_(channel_taus.min(), channel_taus.max())
 
         scales = (2 ** torch.arange(p.n_spatial_scales)).float()
@@ -222,14 +273,14 @@ class SpatioTemporalModel(torch.nn.Module):
             angles = torch.linspace(
                 0, torch.pi * 2 - torch.pi / p.n_angles, p.n_angles
             ).float()
-            ratios = (2 ** torch.arange(p.n_ratios)).float().sqrt()
+            ratios = (1.5 ** torch.arange(p.n_ratios)).float().sqrt()
             fields = norse.functional.receptive_field.spatial_parameters(
                 scales_specific,
                 angles,
                 ratios,
-                p.n_derivatives,
-                x=torch.tensor([0.0]),
-                y=torch.tensor([0.0]),
+                p.derivatives,
+                # x=torch.tensor([0.0]),
+                # y=torch.tensor([0.0]),
             ).to(p.device)
             if p.n_angles_grow > 0:
                 new_fields = []
@@ -243,9 +294,9 @@ class SpatioTemporalModel(torch.nn.Module):
                                 p.n_angles + p.n_angles_grow * i,
                             ).float(),
                             ratios[i].unsqueeze(0),
-                            p.n_derivatives,
-                            x=torch.tensor([0.0]),
-                            y=torch.tensor([0.0]),
+                            p.derivatives,
+                            # x=torch.tensor([0.0]),
+                            # y=torch.tensor([0.0]),
                         ).to(p.device)
                     )
                 new_fields = torch.cat(new_fields)
@@ -254,7 +305,7 @@ class SpatioTemporalModel(torch.nn.Module):
 
         # Create spatial receptive fields
         spatial_layers = []
-        kernel_sizes = [5, 5, 3][: p.channel_layers]
+        kernel_sizes = [9, 7, 5][: p.channel_layers]
         if p.separate_spatial_channels:
             for scale in scales:
                 layer_parameters = []
@@ -272,8 +323,10 @@ class SpatioTemporalModel(torch.nn.Module):
                         channels_out=(
                             3 if i == p.channel_layers - 1 else len(spatial_parameters)
                         ),
-                        init_scheme=p.init_scheme,
+                        init_scheme=p.init_scheme_spatial,
                         device=p.device,
+                        norm=p.batch_normalization,
+                        resolution=p.resolution // ((i + 1) * 2)
                     )
                     if p.weight_sharing:
                         layer_parameters.append(SpatialRF(spatial_p))
@@ -295,8 +348,10 @@ class SpatioTemporalModel(torch.nn.Module):
                     channels_out=(
                         3 if i == p.channel_layers - 1 else len(spatial_parameters)
                     ),
-                    init_scheme=p.init_scheme,
+                    init_scheme=p.init_scheme_spatial,
                     device=p.device,
+                    norm=p.batch_normalization,
+                    resolution=p.resolution // ((i + 1) * 2)
                 )
                 if p.weight_sharing:
                     layer_parameters.append(SpatialRF(spatial_p))
@@ -311,16 +366,18 @@ class SpatioTemporalModel(torch.nn.Module):
                 st_p = SpatioTemporalChannelParameters(
                     spatial_layers=spatial_rfs,
                     temporal_layer=(
-                        TemporalRF(tau, p.activation, p.init_scheme, p.device)
+                        TemporalRF(tau, p.activation, p.init_scheme_temporal, p.device)
                         if p.weight_sharing
                         else None
                     ),
                     channels_out=p.n_classes,
                     tau=tau,
                     activation=p.activation,
-                    init_scheme=p.init_scheme,
+                    init_scheme_spatial=p.init_scheme_spatial,
+                    init_scheme_temporal=p.init_scheme_temporal,
                     padding=p.padding,
                     device=p.device,
+                    skip_connections=p.skip_connections
                 )
                 channels.append(SpatioTemporalChannel(st_p))
         self.channels = torch.nn.ModuleList(channels).to(p.device)
@@ -329,9 +386,9 @@ class SpatioTemporalModel(torch.nn.Module):
         self.classifier = norse.SequentialState(
             torch.nn.ConvTranspose2d(p.n_classes, p.n_classes, 5, bias=False),
             TemporalRF(
-                channel_taus.max(), classifier_activation, p.init_scheme, p.device
+                channel_taus.max(), classifier_activation, p.init_scheme_temporal, p.device
             ),
-            torch.nn.Dropout(0.1),
+            torch.nn.Dropout(p.dropout),
         ).to(p.device)
 
         with torch.no_grad():
@@ -372,3 +429,14 @@ class SpatioTemporalModel(torch.nn.Module):
             (channel_state, classifier_state),
             activations,
         )
+    
+    def spatiotemporal_parameters(self):
+        spatial = []
+        temporal = []
+        for l in self.channels:
+            s, t = l.spatiotemporal_parameters()
+            spatial.extend(s)
+            temporal.extend(t)
+        spatial.extend(self.classifier[0].parameters())
+        temporal.extend(self.classifier[1].parameters())
+        return spatial, temporal

@@ -68,6 +68,10 @@ def _js(p, q, ndims):
 
 class DSNT(torch.nn.Module):
     def __init__(self, resolution: Tuple[int, int]):
+        """A differentiable spatial-to-numerical transform (DSNT).
+        Arguments:
+            resolution: The resolution of the input image.
+        """
         super().__init__()
         self.resolution = resolution
         self.probs_x = (
@@ -89,6 +93,12 @@ class DSNT(torch.nn.Module):
 
 class DSNTLI(torch.nn.Module):
     def __init__(self, resolution: Tuple[int, int]):
+        """A differentiable spatial-to-numerical transform (DSNT) with a linear
+        integration (LI) step.
+
+        Arguments:
+            resolution: The resolution of the input image.
+        """
         super().__init__()
         self.resolution = resolution
         self.probs_x = (

@@ -1,6 +1,6 @@
-# Covariant spatio-temporal receptive fields for neuromorphic computing
+# Covariant spatio-temporal receptive fields for spiking neural networks
 
-This repository contains the code for the paper "Covariant spatio-temporal receptive fields for neuromorphic computing".
+This repository contains the code for the paper "Covariant spatio-temporal receptive fields for spiking neural networks".
 
 A preprint is available at: [arXiv:2405.00318](https://arxiv.org/abs/2405.00318)
 
@@ -21,22 +21,40 @@ Our contributions are immediately relevant for signal processing and event-based
 
 [Event camera data](https://en.wikipedia.org/wiki/Event_camera) is sparse and discrete, which means that any computational model is faced with several challenges: the signal must somehow be integrated over time to capture the **temporal** characteristics, the **spatial** structure of the events needs to be kept over both space *and* time, and the sparsity should be retained to exploit the low energy consumption of neuromorphic technologies.
 
+<video src="https://github.com/Jegp/nrf/assets/1064317/d86b6f79-281b-4642-84a6-146c864a100a" muted autoplay loop style="margin: 0 auto;"></video>
+
 We achieve all of the above by combining *spatial receptive fields* (**a**, **b**, and **d**) and *temporal receptive fields* (**c**, **e**) on both dense image data from the UCF-101 dataset (**b** and **c**) and event-based data from [our event-based dataset generator](https://github.com/ncskth/event-generator) (**d** and **e**).
 The spatial receptive fields are Gaussian derivatives parameterizing certain spatial covariance properties.
 The temporal receptive fields are truncated exponential kernels parameterizing temporal scaling properties.
 Taken together, we provably achieve covariance for spatial affine transformations, Galilean transformations, and temporal scaling transformations in the image domain.
 Put differently, we exploit the symmetries in natural image transformations to correctly code for physical movements of objects in space and time.
 
-<video src="https://github.com/Jegp/nrf/assets/1064317/d86b6f79-281b-4642-84a6-146c864a100a" muted autoplay loop style="margin: 0 auto;"></video>
-
 ## Dataset
-The data is generated using the [event-generator](https://github.com/ncskth/event-generator) repository (seen in the Figure above, panel **d**).
+The data is generated using the [GERD simulator](https://github.com/ncskth/gerd) (seen in the Figure above, panel **d**).
 We use the PyTorch dataset class in `dataset.py` to load the data.
-Please refer to the event-generator repository for more information how to generate data to reproduce our results.
+Here are the parameters we used to generate the datasets
+
+## Usage
+
+Before our code can be run, the following dependencies must be installed:
+```
+torch>=2.2
+norse>=1.1.0
+pytorch-lightning==1.9.4
+tensorboard==2.17.1
+```
+
+The main entry-point is the `learn_shapes.py` file, which takes two main arguments (path to the training data and path to the log directory) and a host of hyperparameters.
+
+```
+python3 learn_shapes.py <path-to-data> <path-to-log>
+```
+
+A description of the parameters can be found using `python3 learn_shapes.py --help`.
 
 ## Acknowledgements
 All simulations, neuron models, and the spatio-temporal receptive fields rely on [the Norse library](https://github.com/norse/norse).
-The implementation of affine directional derivatives is based on
+It should be noted that the implementation of affine directional derivatives in Norse is based on
 the [affscsp module in the pyscsp package](https://github.com/tonylindeberg/pyscsp) and some parts
 of the temporal smoothing operations are based on the
 [pytempscsp package](https://github.com/tonylindeberg/pytempscsp).
