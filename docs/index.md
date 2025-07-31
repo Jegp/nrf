@@ -10,7 +10,7 @@
 
 [Neuromorphic computing](https://en.wikipedia.org/wiki/Neuromorphic) exploits the laws of physics to perform computations, similar to the human brain.
 If we can "lower" the computation into physics, we achieve **extreme energy gains**, [up to 27-35 orders of magnitude](https://ieeexplore.ieee.org/document/10363573).
-So, why aren't we doing that? Presently, we *lack theories to guide efficient implementations*. 
+So, why aren't we doing that? Presently, we *lack theories to guide efficient implementations*.
 We can build the circuits, but we don't know how to combine them to achieve what we want.
 [Current neuromorphic models cannot compete with deep learning](https://www.nature.com/articles/s43588-021-00184-y).
 
@@ -90,10 +90,13 @@ The below figure shows the performance of our model compared to a non-neuromorph
 The leaky integrator (LI) and the leaky integrate-and-fire (LIF) models outperform the ReLU network in most cases.
 Even the ReLU network that has access to multiple frames in the past (multi-frame (MF) vs single-frame (SF)).
 
-For context, the sparse setting (velocity = 0.08) generates about 3-4 shape-related activations per time step, against a backdrop of about 500 activations related to noise.
+For context, the sparse setting (velocity = 0.16) generates about 1‰ activations per timestep, out of which ~4 are shape-related activations per time step, against a backdrop of about 500 activations related to noise.
 
-![](translation.svg)
+![](scaling.svg)
 
+The *results are exciting because we can capture covariance properties exclusively with leaky integrators and leaky integrate-and-fire neurons*.
+In practice, our theory allows us to construct vision processing systems that guarantee to capture the transformations we need them to.
+And, eventually, we can deploy this on cheap and low-power neuromorphic hardware.
 
 ## Acknowledgements
 The authors gratefully acknowledge support from the EC Horizon 2020 Framework
@@ -103,7 +106,7 @@ Programme under Grant Agreements 785907 and 945539 (HBP), the Swedish Research C
 Our work is available as a preprint at [arXiv:2405.00318](https://arxiv.org/abs/2405.00318) and can be cited as follows
 ```bibtex
 @misc{pedersen2024covariant,
-      title={Covariant spatio-temporal receptive fields for neuromorphic computing}, 
+      title={Covariant spatio-temporal receptive fields for neuromorphic computing},
       author={Jens Egholm Pedersen and Jörg Conradt and Tony Lindeberg},
       year={2024},
       eprint={2405.00318},
