@@ -24,11 +24,11 @@ The direction is exciting to us because
 
 ## What is a **spatial** receptive field?
 
-A spatial receptive field can be thought of as a kernel that <q>pattern matches</q> the incoming signal.
-Formally, it is [the convolution integral](https://en.wikipedia.org/wiki/Convolution) of the input signal with a kernel \\(k\\).
+A spatial receptive field can be thought of as a kernel that <q>pattern matches</q> the incoming signal $f\colon \mathbb{R}^n \to \mathbb{R}$.
+Formally, a spatial receptive field is [the convolution integral](https://en.wikipedia.org/wiki/Convolution) of the input signal with a kernel $g$.
 
 $$
-(f \star g) (t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau) d\tau
+(g * f)(x) = \int_{u \in \mathbb{R}^n = -\infty}^\infty g(u) \, f(x - u) \, du
 $$
 
 In our case, we use [Gaussian derivatives](https://en.wikipedia.org/wiki/Gaussian_function), which are a [heavily exploited in biological vision](https://www.sciencedirect.com/science/article/pii/S2405844021000025).
@@ -40,13 +40,13 @@ Each kernel will provide a unique response to the input signal, which exactly co
 
 ## What is a **temporal** receptive field?
 In time, this looks a little different.
-First, we have a **causality assumption**. We cannot integrate from \\(-\infty\\) to \\(\infty\\) in time, because we don't know the future.
+Here, we impose a **causality assumption** on our signal: we cannot integrate from $-\infty$ to $\infty$ in time, because we don't know the future.
 
 $$
-(f \star g) (t) = \int_{0}^{\infty} f(\tau) g(t - \tau) d\tau
+(h * f) (t) = \int_{u \in \mathbb{R} = 0}^\infty h(u)\ f(t - u) du
 $$
 
-That limits our choice of \\(g\\), and we instead have to integrate with an *exponentially truncated* kernel like the video below
+That limits our choice of $h$, and we instead have to integrate with an *exponentially truncated* kernel like the video below
 
 $$
 h(t;\, \mu) = \begin{cases} \mu^{-1}\exp(-t/\mu) & t \gt 0 \\ 0 & t \leqslant 0 \end{cases}
