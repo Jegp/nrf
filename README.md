@@ -6,7 +6,7 @@
 This repository contains the code for the paper "Covariant spatio-temporal receptive fields for spiking neural networks".
 
 ## Video summary (watch on YouTube)
-[![Paper summary video](https://img.youtube.com/vi/qtHkrx4tYfI/0.jpg)](https://www.youtube.com/watch?v=VIDEO_ID)
+[![Paper summary video](https://img.youtube.com/vi/qtHkrx4tYfI/0.jpg)](https://www.youtube.com/watch?v=qtHkrx4tYfI)
 
 
 ## Introduction
